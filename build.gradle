@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.1.3'
+    id 'io.spring.dependency-management' version '1.1.3'
+    id 'com.google.cloud.tools.jib' version '3.3.2'
+    id 'war'
+}
+
+group = 'com.hummersoft'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '17'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    //implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.json:json:20230227'
+    implementation 'org.hibernate:hibernate-core:6.3.1.Final'
+    compileOnly 'org.projectlombok:lombok'
+    runtimeOnly 'org.postgresql:postgresql'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+
+
+jib {
+    from {
+        //image = "gcr.io/distroless/java17:latest"
+        image = "arm64v8/amazoncorretto:17-alpine3.17-jdk"
+    }
+    to {
+/*        image = "registry.hub.docker.com/letscode2inspire/eira-service:latest"
+        auth {
+            username = "letscode2inspire"
+            password = "Welcome@12345"
+        }
+    }
+ */  
+        image = '276425770626.dkr.ecr.ap-south-1.amazonaws.com/eira-service'
+        }
+}
