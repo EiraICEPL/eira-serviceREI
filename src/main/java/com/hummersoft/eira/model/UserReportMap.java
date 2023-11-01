@@ -44,8 +44,8 @@ public class UserReportMap implements Serializable {
     @Column(name="creationdate")
     private Timestamp CreationDate;
     
-    @Column(name="range")
-    private String range;
+//    @Column(name="range")
+//    private String range;
     
     @Column(name="siteid")
     private Integer siteId;
@@ -130,13 +130,13 @@ public class UserReportMap implements Serializable {
 		CreationDate = creationDate;
 	}
 
-	public String getRange() {
-		return range;
-	}
-
-	public void setRange(String range) {
-		this.range = range;
-	}
+//	public String getRange() {
+//		return range;
+//	}
+//
+//	public void setRange(String range) {
+//		this.range = range;
+//	}
 
 	public Integer getSiteId() {
 		return siteId;

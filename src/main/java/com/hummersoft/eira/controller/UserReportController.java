@@ -51,7 +51,6 @@ public class UserReportController {
 			addreport.setActiveFlag(jsonobj.getInt("activeFlag"));
 			addreport.setCreationDate(ts);
 			addreport.setMailId(jsonobj.getString("mailId"));
-			addreport.setRange(jsonobj.getString("range"));
 			addreport.setReportId(jsonobj.getInt("reportId"));
 			addreport.setSiteId(jsonobj.getInt("siteId"));
 			addreport.setTimePeriod(jsonobj.getString("timePeriod"));
@@ -79,7 +78,6 @@ public class UserReportController {
 				UserReportMap existingReport = existingOpt.get();
 				existingReport.setActiveFlag(jsonobj.getInt("activeFlag"));
 				existingReport.setMailId(jsonobj.getString("mailId"));
-				existingReport.setRange(jsonobj.getString("range"));
 				existingReport.setReportId(jsonobj.getInt("reportId"));
 				existingReport.setSiteId(jsonobj.getInt("siteId"));
 				existingReport.setTimePeriod(jsonobj.getString("timePeriod"));
