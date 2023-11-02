@@ -29,6 +29,14 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.json:json:20230227'
     implementation 'org.hibernate:hibernate-core:6.3.1.Final'
+    // https://mvnrepository.com/artifact/com.itextpdf/itextpdf
+	implementation 'com.itextpdf:itextpdf:5.5.13'
+	// https://mvnrepository.com/artifact/org.jfree/jfreechart
+	implementation 'org.jfree:jfreechart:1.5.0'
+	// https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-mail
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	
+	
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'

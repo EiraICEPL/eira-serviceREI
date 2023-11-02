@@ -1,5 +1,6 @@
 package com.hummersoft.eira.Scheduler;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -8,16 +9,19 @@ import java.awt.geom.Rectangle2D;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
@@ -35,10 +39,12 @@ import org.jfree.data.category.DefaultCategoryDataset;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -47,10 +53,15 @@ import com.hummersoft.eira.common.DateUtil;
 import com.hummersoft.eira.common.DateUtil.HeaderFooter;
 import com.hummersoft.eira.dto.DailyGenerationTodayEnergyDTO;
 import com.hummersoft.eira.dto.EnergyPerformanceDTO;
+import com.hummersoft.eira.dto.EquipmentDTO;
+import com.hummersoft.eira.model.Site;
 import com.hummersoft.eira.model.UserReportMap;
 import com.hummersoft.eira.repository.SchedulingReportRepository;
+import com.hummersoft.eira.repository.SiteRepository;
 import com.hummersoft.eira.service.DailyGenerationService;
 import com.hummersoft.eira.service.EnergyPerformanceService;
+import com.hummersoft.eira.service.ParameterComparisionService;
+import com.hummersoft.eira.service.SiteService;
 import com.itextpdf.text.BaseColor;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
@@ -67,6 +78,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 @Component
+@EnableScheduling
 public class PdfGenerator {
 
 	@Autowired
@@ -75,20 +87,47 @@ public class PdfGenerator {
 	private DateUtil dateUtil;
 	@Autowired
 	private EnergyPerformanceService energyPerformanceService;
+	
+	@Autowired
+	private ParameterComparisionService paramcompare;
 
 	@Autowired
     private SchedulingReportRepository schedulingReportRepository;
 	
 	@Autowired
+    private SiteService siteService;
+	
+	@Autowired
+    private SiteRepository siteRepo;
+	
+	@Autowired
 	private  RestTemplate restTemplate;
-
+	
 	@Autowired
     private JavaMailSender javaMailSender;
-    
 	
+	@Value("${report.siteTable}")
+	private List<String> columnNames;
+	
+	// Set font size for table content
+	Font tableFont = new Font(Font.FontFamily.HELVETICA, 7, Font.NORMAL);
+
+	// Set background color for table headers
+	BaseColor headerBackgroundColor = new BaseColor(135, 206, 250); // Light Blue color
+
+	// Set total table border color to AliceBlue (#F0F8FF)
+	BaseColor totalTableBorderColor = new BaseColor(240, 248, 255); // AliceBlue color
+	
+	// Set font color for header text
+	Font headerFont = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD, new BaseColor(64, 64, 64)); // Dark Gray
+																											// color for
+	Font pageHeaderFont = new Font(Font.FontFamily.HELVETICA, 14, Font.BOLD, BaseColor.BLACK);																										// header text
+    
+	Map<Integer,String> EquipMap = new HashMap<Integer, String>();
 	  private int executionCount = 0;
 
-	  @Scheduled(cron = "0 0 * * * ?")
+	  //@Scheduled(cron = "0 0 * * * ?")
+	  @Scheduled(cron = "0 */1 * * * ?")
 	    public void sendEmailsWithPDFAttachments() {
 	        executionCount++;
 
@@ -117,18 +156,44 @@ public class PdfGenerator {
 	            }
 	        }
 	    }
-	private void addSitenameToFirstPage(Document document, String sitename) throws Exception {
+	private void addSitenameToFirstPage(Document document, String siteName) throws Exception {
 	    Font sitenameFont = new Font(Font.FontFamily.HELVETICA, 14, Font.BOLD, BaseColor.BLACK);
-	    Paragraph sitenameParagraph = new Paragraph(sitename, sitenameFont);
+	    Paragraph sitenameParagraph = new Paragraph(siteName, sitenameFont);
 	    sitenameParagraph.setAlignment(Element.ALIGN_CENTER);
-	    document.add(sitenameParagraph);
+	    document.add(sitenameParagraph);	
+	}
+	
+	private void addSiteDetails(Document document, Optional<Site> site) {
+		
+		try {
+			addSectionHeading(document, "Site Details");
+			
+			PdfPTable table = new PdfPTable(columnNames.size()); 
+			table.setWidthPercentage(100);
+			
+			for (int i=0;i<columnNames.size(); i++) {
+				addTableHeader(table, columnNames.get(i), headerFont, headerBackgroundColor, headerBackgroundColor);
+			}
+			
+			addTableRow(table, site.get().getSiteName(), headerFont, totalTableBorderColor);
+			addTableRow(table, site.get().getSiteTypeName(), headerFont, totalTableBorderColor);
+			addTableRow(table, String.valueOf(site.get().getInstallationCapacity()), headerFont, totalTableBorderColor);
+			
+			document.add(table);
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
-	private String pdfDir = "E:\\Scheduler\\Scheduler\\Scheduletime";
+	private String pdfDir = "D:\\PdfReportRepo";
 	private String reportFileName = "Monthly_Report";
 	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
-	private String logoImgPath = "S:\\Images\\webdyb_logo.png";
+	private String logoImgPath = "D:\\PdfReportRepo\\Webdyn colour Logo.png";
 	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
+	
+	
 	public ByteArrayOutputStream generatePdfReport(Integer siteId2, String sitename) throws Exception {
 	    float leftMargin = 72;
 	    float rightMargin = 72;
@@ -139,18 +204,46 @@ public class PdfGenerator {
 	    document.setMargins(leftMargin, rightMargin, topMargin, bottomMargin);
 
 	    try {
+	    	
+	    	Optional<Site> site=siteRepo.findById(siteId2);
+	    	
+	    	//get all equipments
+			List<EquipmentDTO> lstAllEquipments = siteService.listAllEquipment(siteId2);
+			List<Integer> inv_id = new ArrayList<>();
+			
+			for(int i=0; i<lstAllEquipments.size(); i++) {
+				
+				if (lstAllEquipments.get(i).getCategory().equals("CENTRLINVRTR") || lstAllEquipments.get(i).getCategory().equals("STRINGINVRTR")) {
+					//lstEquipmentinv.add(lstAllEquipments.get(i));
+					inv_id.add(lstAllEquipments.get(i).getEquipmentId());
+					EquipMap.put(lstAllEquipments.get(i).getEquipmentId(), lstAllEquipments.get(i).getCustomerNaming());
+				}
+			}
+			
+	    	
+	    	
 	        List<Document> documents = new ArrayList<>();
 	        HeaderFooter event = new HeaderFooter(logoImgPath);
 	        PdfWriter writer = PdfWriter.getInstance(document, outputStream);
 	        document.open();
 	        addLogo(document);
 	        addDocTitle(document);
-	        addSitenameToFirstPage(document, sitename); // Call a new method to add sitename to the first page
-
-	        // Create a new page for the table of contents
+	        addSitenameToFirstPage(document, site.get().getSiteName()); // Call a new method to add sitename to the first page
+	        
+	        //new to page to add site details
 	        document.newPage();
 	        writer.setPageEvent(event);
 	        Paragraph emptyLinesParagraph = new Paragraph();
+	        leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
+	        document.add(emptyLinesParagraph);
+	        addSiteDetails(document, site);
+	        
+	        
+	        
+	        // Create a new page for the table of contents
+	        document.newPage();
+	        writer.setPageEvent(event);
+	       // Paragraph emptyLinesParagraph = new Paragraph();
 	        leaveEmptyLine(emptyLinesParagraph, 2); // Add 2 empty lines
 	        document.add(emptyLinesParagraph);
 
@@ -172,7 +265,7 @@ public class PdfGenerator {
 	        leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
 	        document.add(emptyLinesParagraph);
 	        addSectionHeading(document, "MultiLine Chart");
-	        createMultiLineChartPage(document, "last month", siteId2.intValue());
+	        createMultiLineChartPage(document, "last month",siteId2.intValue(), inv_id);
 
 	        // Third Section: Line Chart
 	        document.newPage();
@@ -200,8 +293,8 @@ public class PdfGenerator {
 	    return outputStream;
 	}
 
-        private void createMultiLineChartPage(Document document, String reportMaps, int siteId) throws Exception {
-            JFreeChart multiLineChart = generateMultiLineChart(reportMaps, siteId);
+        private void createMultiLineChartPage(Document document, String reportMaps, int siteId, List<Integer> inv_id) throws Exception {
+            JFreeChart multiLineChart = generateMultiLineChart(reportMaps,siteId, inv_id);
             Image chartImage = getImageFromChart(multiLineChart);
             chartImage.setSpacingBefore(-20);
             addChartToDocument(document, chartImage);
@@ -310,7 +403,9 @@ public class PdfGenerator {
 
 	    return chart;
 	}
-
+	
+	
+	
 	private JFreeChart generateLineChart(String reportMaps, int siteId) {
 	    DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
 	    Date[] dateRange = dateUtil.setDateRange(reportMaps);
@@ -334,20 +429,21 @@ public class PdfGenerator {
 	    return lineChart;
 	}
 
-	public JFreeChart generateMultiLineChart(String reportMaps, int siteId) {
+	public JFreeChart generateMultiLineChart(String reportMaps,int siteId, List<Integer> equipmentId) {
 	    DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
 	    Date[] dateRange = dateUtil.setDateRange(reportMaps);
 	    Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
-	    Integer[] equipmentIds = { 3230, 3231, 3232, 3233, 3234, 3235, 3236, 3237, 3238, 3239, 3240, 3241, 3242 };
-	    List<Integer> intList = Arrays.asList(equipmentIds);
+	   // Integer[] equipmentIds = { 3230, 3231, 3232, 3233, 3234, 3235, 3236, 3237, 3238, 3239, 3240, 3241, 3242 };
+	   // List<Integer> intList = Arrays.asList(equipmentId);
 
 	    try {
 	        List<EnergyPerformanceDTO> energyGenValue = energyPerformanceService.getEnergyPerformanceValue(siteId,
-	                "custom", timestamps[0], timestamps[1], intList);
+	                "custom", timestamps[0], timestamps[1], equipmentId);
 
 	        for (EnergyPerformanceDTO energyPerformance : energyGenValue) {
-	            String category = String.valueOf(energyPerformance.getEquipmentId());
-	            String time = energyPerformance.getTimestamp().toString();
+	           // String category = String.valueOf(energyPerformance.getEquipmentId());
+	        	String category = EquipMap.get(energyPerformance.getEquipmentId());
+	        	String time = energyPerformance.getTimestamp();
 	            double energyValue = energyPerformance.getTodayEnergy();
 
 	            lineChartDataSet.addValue(energyValue, category, time);
@@ -356,18 +452,47 @@ public class PdfGenerator {
 	        e.printStackTrace(); // Handle the exception according to your application's error handling strategy.
 	    }
 
-	    JFreeChart lineChart = ChartFactory.createLineChart(null, "Time", "Energy Value", lineChartDataSet,
+	    JFreeChart lineChart = ChartFactory.createLineChart("Inverter Performance", "Time", "Energy Value", lineChartDataSet,
 	            PlotOrientation.VERTICAL, true, true, false);
 
 	    CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
 	    LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
+	    lineChartRenderer. setDefaultStroke(new BasicStroke(4.0f));
 	    lineChartPlot.setRenderer(lineChartRenderer);
 	    lineChartPlot.setBackgroundPaint(null);
+	    //lineChartPlot.set
 	    lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
 
 	    return lineChart;
 	}
 
+	private void invAcEnergyTable(Document document,int siteId, List<Integer> equipmentId) {
+		
+		try {
+			addSectionHeading(document, "Inverter AC Energy Table");
+			
+			PdfPTable table = new PdfPTable(columnNames.size()); 
+			table.setWidthPercentage(100);
+			
+			/*
+			 * for (int i=0;i<columnNames.size(); i++) { addTableHeader(table,
+			 * columnNames.get(i), headerFont, headerBackgroundColor,
+			 * headerBackgroundColor); }
+			 * 
+			 * addTableRow(table, site.get().getSiteName(), headerFont,
+			 * totalTableBorderColor); addTableRow(table, site.get().getSiteTypeName(),
+			 * headerFont, totalTableBorderColor); addTableRow(table,
+			 * String.valueOf(site.get().getInstallationCapacity()), headerFont,
+			 * totalTableBorderColor);
+			 */
+			document.add(table);
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
 
 	private static void leaveEmptyLine(Paragraph paragraph, int number) {
 		for (int i = 0; i < number; i++) {
@@ -454,19 +579,6 @@ public class PdfGenerator {
 		// Get the equipmentList array from the JSON response
 		JSONArray equipmentList = jsonObject.getJSONArray("equipmentList");
 
-		// Set font size for table content
-		Font tableFont = new Font(Font.FontFamily.HELVETICA, 7, Font.NORMAL);
-
-		// Set background color for table headers
-		BaseColor headerBackgroundColor = new BaseColor(135, 206, 250); // Light Blue color
-
-		// Set font color for header text
-		Font headerFont = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD, new BaseColor(64, 64, 64)); // Dark Gray
-																										// color for
-																										// header text
-
-		// Set total table border color to AliceBlue (#F0F8FF)
-		BaseColor totalTableBorderColor = new BaseColor(240, 248, 255); // AliceBlue color
 
 		// Create a table with fixed number of columns based on your JSON object fields
 		PdfPTable table = new PdfPTable(7); // Assuming 7 columns: customerNaming, performanceRatio, totalEnergy,
