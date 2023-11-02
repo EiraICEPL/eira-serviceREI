@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hummersoft.eira.dto.ReportMasterDTO;
 import com.hummersoft.eira.model.UserReportMap;
 import com.hummersoft.eira.service.UserReportService;
 
@@ -82,8 +83,8 @@ public class UserReportController {
 				existingReport.setSiteId(jsonobj.getInt("siteId"));
 				existingReport.setTimePeriod(jsonobj.getString("timePeriod"));
 				existingReport.setUserId(jsonobj.getInt("userId"));
-				UserReportMap updatedObj = userreportService.updateSector(existingReport);
-				return ResponseEntity.ok(updatedObj);
+				UserReportMap updatedObj = userreportService.updateReport(existingReport);
+				return ResponseEntity.ok("Updated");
 			} else {
 				return ResponseEntity.notFound().build();
 			}
@@ -101,7 +102,6 @@ public class UserReportController {
 	public ResponseEntity<List<UserReportMap>> findByUserId(@PathVariable Integer userId) {
 		System.out.println("Userid="+userId);
 		List<UserReportMap> userReports = userreportService.findByUserId(userId);
-		System.out.println("jhahdf");
 		if (!userReports.isEmpty()) {
 			return ResponseEntity.ok(userReports);
 		} else {
@@ -144,4 +144,10 @@ public class UserReportController {
 		userreportService.deletereportMapById(reportMapId);
 		return ResponseEntity.ok(HttpStatus.OK);
 	}
+	
+	@GetMapping("/findAllReportNames")
+	public List<ReportMasterDTO> findAllReportNames() {
+	    return userreportService.findAllReportNames();
+	}
+
 }

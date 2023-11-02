@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.hummersoft.eira.dto.ReportMasterDTO;
+import com.hummersoft.eira.model.ReportMaster;
 import com.hummersoft.eira.model.UserReportMap;
 
 
@@ -31,5 +33,9 @@ public interface UserReportRepository extends JpaRepository<UserReportMap, BigIn
 	@Modifying
 	@Query(value = "UPDATE eampm.userreportmap SET activeflag = 1 WHERE reportMapId = :reportMapId", nativeQuery = true)
 	void activatereportMapId(BigInteger reportMapId);
+	
+  
+    @Query(value="SELECT  r.reportName,r.reportId FROM eampm.reportmaster r", nativeQuery = true)
+	List<ReportMasterDTO> findAllReportName();
 
 }

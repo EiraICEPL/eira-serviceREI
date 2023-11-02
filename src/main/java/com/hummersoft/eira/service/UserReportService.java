@@ -4,13 +4,14 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Optional;
 
+import com.hummersoft.eira.dto.ReportMasterDTO;
 import com.hummersoft.eira.model.UserReportMap;
 
 
 public interface UserReportService {
 	UserReportMap saveUserReportMap(UserReportMap userReportMap);
 
-	UserReportMap updateSector(UserReportMap existingReport);
+	UserReportMap updateReport(UserReportMap existingReport);
 
 	Optional<UserReportMap> findByreportMapId(BigInteger reportMapId);
 
@@ -27,6 +28,8 @@ public interface UserReportService {
 	void activatereportMapId(BigInteger reportMapId);
 
 	void deletereportMapById(BigInteger reportMapId);
+
+	List<ReportMasterDTO> findAllReportNames();
 
 
 }

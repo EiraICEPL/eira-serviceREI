@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.hummersoft.eira.dto.ReportMasterDTO;
+import com.hummersoft.eira.model.ReportMaster;
 import com.hummersoft.eira.model.UserReportMap;
 import com.hummersoft.eira.repository.UserReportRepository;
 
@@ -26,7 +28,7 @@ public class UserReportServiceImpl implements UserReportService {
 
 	@Transactional
 	@Override
-	public UserReportMap updateSector(UserReportMap existingReport) {
+	public UserReportMap updateReport(UserReportMap existingReport) {
 		return userReportRepository.saveAndFlush(existingReport);
 	}
 
@@ -81,4 +83,10 @@ public class UserReportServiceImpl implements UserReportService {
 
 	}
 
+	@Override
+	@Transactional
+	public List<ReportMasterDTO> findAllReportNames() {
+        return userReportRepository.findAllReportName();
+       
+    }
 }
