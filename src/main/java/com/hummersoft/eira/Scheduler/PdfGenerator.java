@@ -458,10 +458,10 @@ public class PdfGenerator {
 	    LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
 	    lineChartPlot.setRenderer(lineChartRenderer);
 	    lineChartPlot.setBackgroundPaint(null);
-	    float lineWidth = 3.0f; // Adjust the line thickness as needed
-	    for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
-	        lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth));
-	    }
+//	    float lineWidth = 3.0f; // Adjust the line thickness as needed
+//	    for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
+//	        lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth));
+//	    }
 
 	    lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
 
