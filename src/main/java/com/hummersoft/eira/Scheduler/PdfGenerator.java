@@ -10,6 +10,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.text.DateFormat;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -54,6 +56,7 @@ import com.hummersoft.eira.common.DateUtil.HeaderFooter;
 import com.hummersoft.eira.dto.DailyGenerationTodayEnergyDTO;
 import com.hummersoft.eira.dto.EnergyPerformanceDTO;
 import com.hummersoft.eira.dto.EquipmentDTO;
+import com.hummersoft.eira.dto.SpecificYieldDTO;
 import com.hummersoft.eira.model.Site;
 import com.hummersoft.eira.model.UserReportMap;
 import com.hummersoft.eira.repository.SchedulingReportRepository;
@@ -127,12 +130,13 @@ public class PdfGenerator {
 	private int executionCount = 0;
 
 	// @Scheduled(cron = "0 0 * * * ?")
-	 @Scheduled(cron = "0 */2 * * * ?")
+	 @Scheduled(cron = "0 0 * * * ?")
 	public void sendEmailsWithPDFAttachments() {
 		executionCount++;
 
 		// Get the list of UserReportMap objects by time period for different sites
 		List<UserReportMap> reportMaps = getReportByTimePeriod("this month");
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH_mm"); 
 
 		for (UserReportMap reportMap : reportMaps) {
 			Integer siteId = reportMap.getSiteId();
@@ -144,7 +148,7 @@ public class PdfGenerator {
 				ByteArrayOutputStream pdfOutputStream = generatePdfReport(siteId, sitename);
 
 				// Save the PDF report locally (optional)
-				String fileName = sitename + "_Report" + executionCount + ".pdf";
+				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
 				savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
@@ -158,7 +162,7 @@ public class PdfGenerator {
 	}
 
 	private void addSitenameToFirstPage(Document document, String siteName) throws Exception {
-		Font sitenameFont = new Font(Font.FontFamily.HELVETICA, 14, Font.BOLD, BaseColor.BLACK);
+		Font sitenameFont = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLDITALIC, BaseColor.DARK_GRAY);
 		Paragraph sitenameParagraph = new Paragraph(siteName, sitenameFont);
 		sitenameParagraph.setAlignment(Element.ALIGN_CENTER);
 		document.add(sitenameParagraph);
@@ -167,8 +171,7 @@ public class PdfGenerator {
 	private void addSiteDetails(Document document, Optional<Site> site) {
 
 		try {
-			addSectionHeading(document, "Site Details");
-
+			
 			PdfPTable table = new PdfPTable(columnNames.size());
 			table.setWidthPercentage(100);
 
@@ -188,13 +191,13 @@ public class PdfGenerator {
 		}
 	}
 
-	private String pdfDir = "S:\\Gradle";
+	private String pdfDir = "D:\\PdfReportRepo";
 	private String reportFileName = "Monthly_Report";
 	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
-	private String logoImgPath = "S:\\Images\\webdyb_logo.png";
+	private String logoImgPath = "D:\\PdfReportRepo\\Webdyn colour Logo.png";
 	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
 
-	public ByteArrayOutputStream generatePdfReport(Integer siteId2, String sitename) throws Exception {
+	public ByteArrayOutputStream generatePdfReport(Integer siteId, String sitename) throws Exception {
 		float leftMargin = 72;
 		float rightMargin = 72;
 		float topMargin = 72;
@@ -205,12 +208,13 @@ public class PdfGenerator {
 
 		try {
 
-			Optional<Site> site = siteRepo.findById(siteId2);
+			Optional<Site> site = siteRepo.findById(siteId);
 
 			// get all equipments
-			List<EquipmentDTO> lstAllEquipments = siteService.listAllEquipment(siteId2);
+			List<EquipmentDTO> lstAllEquipments = siteService.listAllEquipment(siteId);
 			List<Integer> inv_id = new ArrayList<>();
-
+			Double SumCapacity = 0.0;
+			
 			for (int i = 0; i < lstAllEquipments.size(); i++) {
 
 				if (lstAllEquipments.get(i).getCategory().equals("CENTRLINVRTR")
@@ -218,8 +222,38 @@ public class PdfGenerator {
 					// lstEquipmentinv.add(lstAllEquipments.get(i));
 					inv_id.add(lstAllEquipments.get(i).getEquipmentId());
 					EquipMap.put(lstAllEquipments.get(i).getEquipmentId(), lstAllEquipments.get(i).getCustomerNaming());
+					Double capacity = lstAllEquipments.get(i).getCapacity();
+					SumCapacity = SumCapacity + capacity;
 				}
 			}
+						
+			List<SpecificYieldDTO> specificYieldInv = new ArrayList<>();
+			DecimalFormat df = new DecimalFormat("#.00");
+			
+			//get energy details
+			Date[] dateRange = dateUtil.setDateRange("last month");
+			Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
+
+			List<DailyGenerationTodayEnergyDTO> dailyGenValue = dailyGenerationService.getDgrValue(siteId, "custom",
+					timestamps[0], timestamps[1]);
+			
+			for (DailyGenerationTodayEnergyDTO generation : dailyGenValue) {
+				SpecificYieldDTO specificDTO = new SpecificYieldDTO();
+				if (generation.getTodayEnergy() != null && generation.getTodayEnergy() != 0) {
+					Double SpecificYield = ((generation.getTodayEnergy()) / SumCapacity);
+
+					specificDTO.setTodayEnergy(generation.getTodayEnergy());
+					specificDTO.setTimeStamp(generation.getTimestamp());
+					String formatted = df.format(SpecificYield);
+					double SpecificYieldRounded = Double.parseDouble(formatted);
+					specificDTO.setSpecificYield(SpecificYieldRounded);
+
+				}
+				specificYieldInv.add(specificDTO);
+			}
+
+			  List<EnergyPerformanceDTO> energyGenValue = energyPerformanceService.getEnergyPerformanceValue(siteId,
+		                "custom", timestamps[0], timestamps[1], inv_id);
 
 			List<Document> documents = new ArrayList<>();
 			HeaderFooter event = new HeaderFooter(logoImgPath);
@@ -229,57 +263,65 @@ public class PdfGenerator {
 			addDocTitle(document);
 			addSitenameToFirstPage(document, site.get().getSiteName()); // Call a new method to add sitename to the
 																		// first page
-
+			int headingCount=1;
+			
 			// new to page to add site details
 			document.newPage();
 			writer.setPageEvent(event);
 			Paragraph emptyLinesParagraph = new Paragraph();
-			leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
+			leaveEmptyLine(emptyLinesParagraph, 2); // Add 1 empty line
 			document.add(emptyLinesParagraph);
+			addSectionHeading(document, "Site Details",headingCount++);
 			addSiteDetails(document, site);
 
 			// Create a new page for the table of contents
-			document.newPage();
-			writer.setPageEvent(event);
+			//document.newPage();
+			//writer.setPageEvent(event);
 			// Paragraph emptyLinesParagraph = new Paragraph();
-			leaveEmptyLine(emptyLinesParagraph, 2); // Add 2 empty lines
-			document.add(emptyLinesParagraph);
+			//leaveEmptyLine(emptyLinesParagraph, 2); // Add 2 empty lines
+			//document.add(emptyLinesParagraph);
 
 			// Generate Table of Contents
-			PdfPTable tocTable = generateTableOfContents();
-			document.add(tocTable);
+			//PdfPTable tocTable = generateTableOfContents();
+			//document.add(tocTable);
 
 			// First Section: Bar Chart
 			document.newPage();
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
 			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Bar Chart");
-			createBarChartPage(document, "last month", siteId2.intValue());
+			addSectionHeading(document, "Energy Performance",headingCount++);
+			createBarChartPage(document, dailyGenValue);
 
 			// Second Section: MultiLine Chart
 			document.newPage();
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
 			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "MultiLine Chart");
-			createMultiLineChartPage(document, "last month", siteId2.intValue(), inv_id);
+			addSectionHeading(document, "Inverter Performance",headingCount++);
+			createMultiLineChartPage(document, energyGenValue);
+			leaveEmptyLine(emptyLinesParagraph, 3); // Add 1 empty line
+			document.add(emptyLinesParagraph);
+			//invAcEnergyTable(document, energyGenValue);
+			//leaveEmptyLine(emptyLinesParagraph, 2); // Add 1 empty line
+			//document.add(emptyLinesParagraph);
+			addCo2Avoided(document, dailyGenValue);
 
 			// Third Section: Line Chart
 			document.newPage();
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
 			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Line Chart");
-			createLineChartPage(document, "last month", siteId2.intValue());
+			addSectionHeading(document, "Specific Yield",headingCount++);
+			createLineChartPage(document,specificYieldInv);
 
 			// Fourth Section: Equipment List (New Page)
-			document.newPage();
-			writer.setPageEvent(event);
-			leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
-			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Equipment List");
-			createTableFromApi(document);
+			/*
+			 * document.newPage(); writer.setPageEvent(event);
+			 * leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
+			 * document.add(emptyLinesParagraph); addSectionHeading(document,
+			 * "Equipment List"); createTableFromApi(document);
+			 */
 
 			document.close();
 
@@ -291,22 +333,22 @@ public class PdfGenerator {
 		return outputStream;
 	}
 
-	private void createMultiLineChartPage(Document document, String reportMaps, int siteId, List<Integer> inv_id)
+	private void createMultiLineChartPage(Document document, List<EnergyPerformanceDTO> energyGenValue)
 			throws Exception {
-		JFreeChart multiLineChart = generateMultiLineChart(reportMaps, siteId, inv_id);
+		JFreeChart multiLineChart = generateMultiLineChart(energyGenValue);
 		Image chartImage = getImageFromChart(multiLineChart);
 		chartImage.setSpacingBefore(-20);
 		addChartToDocument(document, chartImage);
 	}
 
-	private void createLineChartPage(Document document, String reportMaps, int siteId) throws Exception {
-		JFreeChart lineChart = generateLineChart(reportMaps, siteId);
+	private void createLineChartPage(Document document,List<SpecificYieldDTO>  specificYieldInv) throws Exception {
+		JFreeChart lineChart = generateLineChart(specificYieldInv);
 		Image chartImage = getImageFromChart(lineChart);
 		addChartToDocument(document, chartImage);
 	}
 
-	private void createBarChartPage(Document document, String reportMaps, int siteId) throws Exception {
-		JFreeChart barChart = generateBarChart(reportMaps, siteId);
+	private void createBarChartPage(Document document, List<DailyGenerationTodayEnergyDTO> dailyGenValue ) throws Exception {
+		JFreeChart barChart = generateBarChart(dailyGenValue );
 		CategoryPlot plot = barChart.getCategoryPlot();
 		plot.setRenderer(new CustomRenderer()); // Set the custom renderer
 		Image chartImage = getImageFromChart(barChart);
@@ -374,14 +416,8 @@ public class PdfGenerator {
 		return lastMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + lastMonth.getYear();
 	}
 
-	public JFreeChart generateBarChart(String reportMaps, int siteId) {
+	public JFreeChart generateBarChart(List<DailyGenerationTodayEnergyDTO> dailyGenValue ) {
 		DefaultCategoryDataset dataSet = new DefaultCategoryDataset();
-
-		Date[] dateRange = dateUtil.setDateRange(reportMaps);
-		Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
-
-		List<DailyGenerationTodayEnergyDTO> dailyGenValue = dailyGenerationService.getDgrValue(siteId, "custom",
-				timestamps[0], timestamps[1]);
 
 		for (int i = 0; i < dailyGenValue.size(); i++) {
 			dataSet.setValue(dailyGenValue.get(i).getTodayEnergy(), "Energy Gen", Integer.toString(i));
@@ -398,23 +434,27 @@ public class PdfGenerator {
 		plot.setRenderer(renderer);
 		plot.setBackgroundPaint(null);
 		plot.setOutlineStroke(null); // Remove the outline (border)
-		plot.setRangeGridlinePaint(Color.WHITE); // Set grid line color to white (same as background)
+		plot.setRangeGridlinePaint(Color.gray); // Set grid line color to white (same as background)
 
 		return chart;
 	}
 
-	private JFreeChart generateLineChart(String reportMaps, int siteId) {
+	private JFreeChart generateLineChart(List<SpecificYieldDTO>  specificYieldInv) {
 		DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
-		Date[] dateRange = dateUtil.setDateRange(reportMaps);
-		Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
-		List<DailyGenerationTodayEnergyDTO> dailyGenValue = dailyGenerationService.getDgrValue(siteId, "custom",
-				timestamps[0], timestamps[1]);
+		/*
+		 * Date[] dateRange = dateUtil.setDateRange(reportMaps); Timestamp[] timestamps
+		 * = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
+		 * List<DailyGenerationTodayEnergyDTO> dailyGenValue =
+		 * dailyGenerationService.getDgrValue(siteId, "custom", timestamps[0],
+		 * timestamps[1]);
+		 */
 
-		for (int i = 0; i < dailyGenValue.size(); i++) {
-			lineChartDataSet.setValue(dailyGenValue.get(i).getTodayEnergy(), "Energy Gen", Integer.toString(i));
+		for (int i = 0; i < specificYieldInv.size(); i++) {
+			 String formattedDay = specificYieldInv.get(i).getTimeStamp().substring(8, 10); 
+			lineChartDataSet.setValue(specificYieldInv.get(i).getSpecificYield(), "Specific Yield", formattedDay);
 		}
 
-		JFreeChart lineChart = ChartFactory.createLineChart(null, "Time", "Energy Gen (KWh)", lineChartDataSet,
+		JFreeChart lineChart = ChartFactory.createLineChart(null, "Time", "Sp. Yield(kWh/kWp)", lineChartDataSet,
 				PlotOrientation.VERTICAL, true, true, false);
 
 		CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
@@ -422,25 +462,23 @@ public class PdfGenerator {
 		lineChartPlot.setRenderer(lineChartRenderer);
 		// Set the line thickness (stroke) for all series
 		float lineWidth = 3.0f; // Adjust the line thickness as needed
-		for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
-			lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth));
-		}
+		
+		  for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
+		  lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth)); }
+		 
 		lineChartPlot.setBackgroundPaint(null);
+		lineChartPlot.setRangeGridlinePaint(Color.gray);
 		lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
 
 		return lineChart;
 	}
 
 
-	public JFreeChart generateMultiLineChart(String reportMaps, int siteId, List<Integer> equipmentId) {
+	public JFreeChart generateMultiLineChart(List<EnergyPerformanceDTO> energyGenValue) {
 	    DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
-	    Date[] dateRange = dateUtil.setDateRange(reportMaps);
-	    Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
-
+	   
 	    try {
-	        List<EnergyPerformanceDTO> energyGenValue = energyPerformanceService.getEnergyPerformanceValue(siteId,
-	                "custom", timestamps[0], timestamps[1], equipmentId);
-
+				    	
 	        for (EnergyPerformanceDTO energyPerformance : energyGenValue) {
 	            String category = EquipMap.get(energyPerformance.getEquipmentId());
 	            String timestamp = energyPerformance.getTimestamp(); // Assuming getTimestamp() returns a String in "yyyy-MM-dd" format
@@ -458,38 +496,66 @@ public class PdfGenerator {
 	    LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
 	    lineChartPlot.setRenderer(lineChartRenderer);
 	    lineChartPlot.setBackgroundPaint(null);
-//	    float lineWidth = 3.0f; // Adjust the line thickness as needed
-//	    for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
-//	        lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth));
-//	    }
 
 	    lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
-
+	    lineChartPlot.setRangeGridlinePaint(Color.gray);
 	    // Set category label positions to avoid overlapping on the X-axis
 	    CategoryAxis domainAxis = lineChartPlot.getDomainAxis();
 	    domainAxis.setCategoryLabelPositions(CategoryLabelPositions.createUpRotationLabelPositions(Math.PI / 6.0));
 
 	    return lineChart;
 	}
-	private void invAcEnergyTable(Document document, int siteId, List<Integer> equipmentId) {
+	private void addCo2Avoided(Document document, List<DailyGenerationTodayEnergyDTO> dailyGenValue) {
+		
+		try {
+			addSectionHeading(document, "Co2 Avoided",7);
+			
+
+			PdfPTable table = new PdfPTable(2);
+			table.setWidthPercentage(100);
+			
+			addTableHeader(table,"Date", headerFont, headerBackgroundColor,
+					  headerBackgroundColor);
+			addTableHeader(table,"CO2 Avoided (in T)", headerFont, headerBackgroundColor,
+					  headerBackgroundColor);
+			
+			for (int i = 0; i < dailyGenValue.size(); i++) {
+				addTableRow(table,dailyGenValue.get(i).getTimestamp(), headerFont, totalTableBorderColor);
+				addTableRow(table,String.valueOf(.0067* dailyGenValue.get(i).getTodayEnergy()), headerFont, totalTableBorderColor);
+				
+			}
+			document.add(table);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		
+	}
+	
+	private void invAcEnergyTable(Document document,List<EnergyPerformanceDTO> energyGenValue) {
 
 		try {
-			addSectionHeading(document, "Inverter AC Energy Table");
+			addSectionHeading(document, "Inverter AC Energy Table",7);
 
-			PdfPTable table = new PdfPTable(columnNames.size());
+			PdfPTable table = new PdfPTable(EquipMap.size()+1);
 			table.setWidthPercentage(100);
+			//table.
+			//table.set
 
-			/*
-			 * for (int i=0;i<columnNames.size(); i++) { addTableHeader(table,
-			 * columnNames.get(i), headerFont, headerBackgroundColor,
-			 * headerBackgroundColor); }
-			 * 
-			 * addTableRow(table, site.get().getSiteName(), headerFont,
-			 * totalTableBorderColor); addTableRow(table, site.get().getSiteTypeName(),
-			 * headerFont, totalTableBorderColor); addTableRow(table,
-			 * String.valueOf(site.get().getInstallationCapacity()), headerFont,
-			 * totalTableBorderColor);
-			 */
+				addTableHeader(table,"Date", headerFont, headerBackgroundColor,
+					  headerBackgroundColor); 
+			  for (int i=0;i<EquipMap.size(); i++) 
+			  { 
+				  addTableHeader(table,EquipMap.get(energyGenValue.get(i).getEquipmentId()), headerFont, headerBackgroundColor,
+			  headerBackgroundColor); 
+			  }
+			  for (int i=0;i<energyGenValue.size(); i++) 
+			  { 
+				  addTableRow(table,energyGenValue.get(i).getTodayEnergy().toString(), headerFont, totalTableBorderColor); 
+			  }
+			  
+			 
 			document.add(table);
 
 		} catch (Exception e) {
@@ -626,9 +692,9 @@ public class PdfGenerator {
 		table.addCell(cell);
 	}
 
-	private void addSectionHeading(Document document, String heading) throws Exception {
-		Font font = new Font(Font.FontFamily.HELVETICA, 12, Font.BOLD);
-		Paragraph paragraph = new Paragraph(heading, font);
+	private void addSectionHeading(Document document, String heading,int count) throws Exception {
+		Font font = new Font(Font.FontFamily.TIMES_ROMAN, 12, Font.BOLDITALIC,BaseColor.DARK_GRAY);
+		Paragraph paragraph = new Paragraph(count+"."+heading, font);
 		paragraph.setAlignment(Element.ALIGN_LEFT);
 		paragraph.setSpacingAfter(20);
 		paragraph.setSpacingBefore(-30);
