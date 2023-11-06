@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hummersoft.eira.common.ReportGenratorPDF;
@@ -29,10 +30,11 @@ public class ReportsController {
     private SchedulingReportService schedulingReportService;
 
     @GetMapping("/GenrateMonthlyReport")
-    public void exportToPDF(HttpServletResponse response) throws DocumentException, IOException {
+    public void exportToPDF(HttpServletResponse response) throws DocumentException, IOException {          
         response.setContentType("application/pdf");
         reportGenerator.generatePdfReport();
     }
+
 
     @GetMapping("/GetReportsByTimeperiod/{timeperiod}")
     public List<UserReportMap> getReportsByTimePeriod(@PathVariable String timeperiod) {
