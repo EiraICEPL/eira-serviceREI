@@ -94,11 +94,8 @@ public class PdfGenerator {
 
 	@Autowired
 	private ParameterComparisionService paramcompare;
-
 	@Autowired
-	private static SchedulingReportRepository schedulingReportRepository;
-
-	
+	private SchedulingReportRepository schedulingReportRepository;
 	@Autowired
 	private SiteService siteService;
 
@@ -822,8 +819,7 @@ public class PdfGenerator {
 			// Handle the exception, log it, or perform necessary actions
 		}
 	}
-
 	public List<UserReportMap> getReportByTimePeriod(String timeperiod) {
 		return schedulingReportRepository.findByTimePeriod(timeperiod);
-	}
+}
 }
