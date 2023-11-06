@@ -15,4 +15,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         current_session_context_class: org.springframework.orm.hibernate5.SpringSessionContext
 report:
-  siteTable: Site Name, Type, Capacity
+  siteTable: Site Name, Type, Capacity,Total Generation
+  eventTable: Equipment Name, Error Message, Event Time, Occurence
+  energyTable: Date, Energy Generated (kWh), Specific Yield

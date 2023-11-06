@@ -1,5 +1,6 @@
 package com.hummersoft.eira.service;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,8 @@ public interface SiteService {
 	List<DataSource> getEnergyDtlsForInvertersBySiteId(int siteId, List<Integer> equipmentId);
 	
 	List<EventDTO> findEventsBySite(int equipmentId);
+	
+	List<EventDTO> findTotalEventsBySiteIdforReports(int equipmentId,Timestamp fdate,Timestamp tdate);
 	
 	int findTodayEvent(int siteId);
 
