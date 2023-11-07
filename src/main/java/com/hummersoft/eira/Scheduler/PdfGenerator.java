@@ -126,6 +126,13 @@ public class PdfGenerator {
 		
 	@Value("${report.siteStatistics}")
 	private List<String> sitestatsTable;
+		
+	private String pdfDir = "D:\\PdfReportRepo";
+	private String reportFileName = "Asset Management Report";
+	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
+	private String logoImgPath = "https://eira-logo.s3.ap-south-1.amazonaws.com/Webdyn+colour+Logo.png";
+	
+	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
 
 	// Set font size for table content
 	Font tableFont = new Font(Font.FontFamily.TIMES_ROMAN, 8, Font.NORMAL);
@@ -139,8 +146,11 @@ public class PdfGenerator {
 
 	// Set font color for header text
 	Font headerFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD, new BaseColor(64, 64, 64));
-	Font rowFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.NORMAL, new BaseColor(64, 64, 64));// Dark Gray
-																									// color for
+	Font rowFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.NORMAL, new BaseColor(64, 64, 64));// Dark Gray color
+	
+	Font invheaderFont = new Font(Font.FontFamily.TIMES_ROMAN, 8, Font.BOLD, new BaseColor(64, 64, 64));
+	Font invrowFont = new Font(Font.FontFamily.TIMES_ROMAN, 8, Font.NORMAL, new BaseColor(64, 64, 64));
+																									
 	Font pageHeaderFont = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD, BaseColor.BLACK); // header text
 
 	Map<Integer, String> EquipMap;
@@ -249,14 +259,6 @@ public class PdfGenerator {
 		}
 	}
 
-	//private String pdfDir = "D:\\PdfReportRepo";
-	 private String pdfDir = "D:\\PdfReportRepo";
-	private String reportFileName = "Asset Management Report";
-	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
-	 private String logoImgPath = "https://eira-logo.s3.ap-south-1.amazonaws.com/Webdyn+colour+Logo.png";
-	//private String logoImgPath = "D:\\PdfReportRepo\\Webdyn colour Logo.png";
-	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
-
 	public ByteArrayOutputStream generatePdfReport(Integer siteId, String sitename) throws Exception {
 		
 		float leftMargin = 72;
@@ -285,11 +287,9 @@ public class PdfGenerator {
 						|| lstAllEquipments.get(i).getCategory().equals("STRINGINVRTR")) {
 					// lstEquipmentinv.add(lstAllEquipments.get(i));
 					inv_id.add(lstAllEquipments.get(i).getEquipmentId());
-					System.out.println(lstAllEquipments.get(i).getCustomerNaming());
 					EquipMap.put(lstAllEquipments.get(i).getEquipmentId(), lstAllEquipments.get(i).getCustomerNaming());
 					Double capacity = lstAllEquipments.get(i).getCapacity();
 					SumCapacity = SumCapacity + capacity;
-					System.out.println(EquipMap.size());
 				}
 			}
 
@@ -671,6 +671,7 @@ public class PdfGenerator {
 						
 			PdfPTable table = new PdfPTable(energyColumns.size());
 			table.setWidthPercentage(100);
+			
 
 			for (int i = 0; i < energyColumns.size(); i++) {
 				addTableHeader(table, energyColumns.get(i), headerFont, headerBackgroundColor, headerBorderColor);
@@ -737,17 +738,19 @@ public class PdfGenerator {
 			
 			PdfPTable table = new PdfPTable(EquipMap.size() + 1);
 			table.setWidthPercentage(100);
+			
 			// table.
 			// table.set
 
-			addTableHeader(table, "Date", headerFont, headerBackgroundColor, headerBackgroundColor);
-			System.out.println(EquipMap.size());
-			for (int i = 0; i < EquipMap.size(); i++) {		
-				System.out.println(energyGenValue.get(i).getEquipmentId());
-				System.out.println(EquipMap.get(energyGenValue.get(i).getEquipmentId()));
-				addTableHeader(table, EquipMap.get(energyGenValue.get(i).getEquipmentId()), headerFont,
-						headerBackgroundColor, headerBackgroundColor);
+			addTableHeader(table, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
+		
+			for (Map.Entry<Integer, String> set :
+				EquipMap.entrySet()) {
+				
+				addTableHeader(table, set.getValue(), invheaderFont,
+						headerBackgroundColor, headerBorderColor);
 			}
+			
 			for (int i = 0; i < energyGenValue.size(); i++) {
 				
 				date = energyGenValue.get(i).getTimestamp();
@@ -765,11 +768,11 @@ public class PdfGenerator {
 			Iterator iterate1 = datewiseEnergyMap.keySet().iterator();
 			while (iterate1.hasNext()) {
 				String key = (String)iterate1.next();
-				addTableRowCenter(table, key, rowFont, totalTableBorderColor);
+				addTableRowCenter(table, key, invrowFont, totalTableBorderColor);
 				Iterator iterate2 = datewiseEnergyMap.get(key).keySet().iterator();
 				while (iterate2.hasNext()) {
 					String key1 = (String)iterate2.next();
-					addTableRowCenter(table,(String) datewiseEnergyMap.get(key).get(key1), rowFont, totalTableBorderColor);
+					addTableRowCenter(table,(String) datewiseEnergyMap.get(key).get(key1), invrowFont, totalTableBorderColor);
 				}
 			}		
 			document.add(table);
