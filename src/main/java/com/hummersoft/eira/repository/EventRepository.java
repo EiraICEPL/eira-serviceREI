@@ -1,5 +1,6 @@
 package com.hummersoft.eira.repository;
 
+import java.sql.Timestamp;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -63,4 +64,20 @@ public interface EventRepository extends JpaRepository<EventDetail, Integer>{
 	List<Object> findTopFiveEventbyUserId(@Param("userId") Long userId);
 
 
+	@Query(value="Select a.transactionid,a.eventid, a.errorid as errorid,a.equipmentid ,"
+			+ "a.siteid,a.severity ,a.priority ,a.remarks ,  a.eventtimestamp ,  a.closedtimestamp,"
+			+ "a.eventoccurrence ,a.eventstatus , a.activeflag ,a.creationdate,a.createdby,"
+			+ "a.lastupdateddate ,a.lastupdatedby , a.lasteventtimestamp , SiteName, "
+			+ "PrimarySerialNumber as EquipmentName,ErrorCode, ErrorMessage, EquipmentType, "
+			+ "ErrorDescription,to_char(a.EventTimestamp,'DD-MM-YYYY HH24:MI') as EventTimestampText,"
+			+ "to_char(a.ClosedTimestamp,'DD-MM-YYYY HH24:MI') as ClosedTimestampText,"
+			+ "to_char(a.LastEventTimestamp,'DD-MM-YYYY HH24:MI') as LastEventTimestampText,"
+			+ "c.CustomerNaming,c.Capacity from tEventDetail a left outer join mSite b "
+			+ "on a.SiteId=b.SiteId left outer join mEquipment c on a.EquipmentId=c.EquipmentId left "
+			+ "outer join mErrorCode d on a.ErrorId=d.ErrorId where a.ActiveFlag='1' and "
+			+ "a.eventTimestamp between :fdate and :tdate and "
+			+ "a.siteId =:siteId order by a.eventoccurrence desc",nativeQuery=true)
+	List<EventDTO>  findTotalEventsBySiteIdforReports(@Param("siteId") int siteId,
+			@Param("fdate") Timestamp fdate, @Param("tdate") Timestamp tdate);
+	
 }

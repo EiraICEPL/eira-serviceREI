@@ -16,3 +16,8 @@ spring:
         current_session_context_class: org.springframework.orm.hibernate5.SpringSessionContext
 report:
   siteTable: Site Name, Type, Capacity
+  eventTable: Equipment Name, Error Message, Event Time, Occurence
+  energyTable: Date, Energy Generated (kWh), Specific Yield
+  equipmentTable: Equipment Category, Equipment Type, No. of Equipment
+  siteStatistics: Total Generation, CUF (%), Total Alarms
+  

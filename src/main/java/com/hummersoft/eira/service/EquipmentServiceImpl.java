@@ -77,5 +77,10 @@ public class EquipmentServiceImpl implements EquipmentService{
 	}
 	    
 
+	@Override
+	public List<Object[]> findEquipmentStatistics(BigInteger siteId) {
+		// TODO Auto-generated method stub
+		return equipmentRepo.findEquipmentStatistics(siteId);
+	}
 }
 
