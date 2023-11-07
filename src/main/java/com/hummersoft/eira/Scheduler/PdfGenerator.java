@@ -150,7 +150,7 @@ public class PdfGenerator {
 
 			try {
 				// Generate PDF report for the current site
-				ByteArrayOutputStream pdfOutputStream = generatePdfReport(818, sitename);
+				ByteArrayOutputStream pdfOutputStream = generatePdfReport(siteId, sitename);
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
@@ -209,7 +209,7 @@ public class PdfGenerator {
 	 private String pdfDir = "S:\\Gradle";
 	private String reportFileName = "Asset Management Report";
 	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
-	 private String logoImgPath = "S:\\\\Images\\\\webdyb_logo.png";
+	 private String logoImgPath = "https://eira-logo.s3.ap-south-1.amazonaws.com/Webdyn+colour+Logo.png";
 	//private String logoImgPath = "D:\\PdfReportRepo\\Webdyn colour Logo.png";
 	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
 
@@ -531,6 +531,9 @@ public class PdfGenerator {
 		CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
 		LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
 		lineChartPlot.setRenderer(lineChartRenderer);
+		  Color lineColor = Color.decode("#3AC9BA");
+		    lineChartRenderer.setSeriesPaint(0, lineColor); // Assuming you have only one series, change the series index if needed
+
 		// Set the line thickness (stroke) for all series
 		float lineWidth = 3.0f; // Adjust the line thickness as needed
 
@@ -635,8 +638,8 @@ public class PdfGenerator {
 			PdfPTable table = new PdfPTable(columnWidths);
 			table.setWidthPercentage(50);
 
-			addTableHeader(table, "Date", headerFont, headerBackgroundColor, headerBackgroundColor);
-			addTableHeader(table, "CO2 Avoided (in T)", headerFont, headerBackgroundColor, headerBackgroundColor);
+			addTableHeader(table, "Date", headerFont, headerBackgroundColor, headerBorderColor);
+			addTableHeader(table, "CO2 Avoided (in T)", headerFont, headerBackgroundColor, headerBorderColor);
 
 			for (int i = 0; i < dailyGenValue.size(); i++) {
 				
@@ -728,10 +731,10 @@ public class PdfGenerator {
 			// table.
 			// table.set
 
-			addTableHeader(table, "Date", headerFont, headerBackgroundColor, headerBackgroundColor);
+			addTableHeader(table, "Date", headerFont, headerBackgroundColor, headerBorderColor);
 			for (int i = 0; i < EquipMap.size(); i++) {		
 				addTableHeader(table, EquipMap.get(energyGenValue.get(i).getEquipmentId()), headerFont,
-						headerBackgroundColor, headerBackgroundColor);
+						headerBackgroundColor, headerBorderColor);
 			}
 			for (int i = 0; i < energyGenValue.size(); i++) {
 				
@@ -799,31 +802,37 @@ public class PdfGenerator {
 
 		@Override
 		public void drawItem(Graphics2D g2, CategoryItemRendererState state, Rectangle2D dataArea, CategoryPlot plot,
-				CategoryAxis domainAxis, ValueAxis rangeAxis, CategoryDataset dataset, int row, int column, int pass) {
-			// Retrieve the value for the current bar
-			Number value = dataset.getValue(row, column);
+		        CategoryAxis domainAxis, ValueAxis rangeAxis, CategoryDataset dataset, int row, int column, int pass) {
+		    
+		    // Retrieve the value for the current bar
+		    Number value = dataset.getValue(row, column);
 
-			// Call the parent method to draw the bar
-			super.drawItem(g2, state, dataArea, plot, domainAxis, rangeAxis, dataset, row, column, pass);
+		    // Call the parent method to draw the bar
+		    super.drawItem(g2, state, dataArea, plot, domainAxis, rangeAxis, dataset, row, column, pass);
 
-			// Display bar value centered on the bar
-			if (value != null) {
-				double x = domainAxis.getCategoryMiddle(column, getColumnCount(), dataArea, plot.getDomainAxisEdge());
-				double y = rangeAxis.valueToJava2D(value.doubleValue(), dataArea, plot.getRangeAxisEdge());
+		    // Display bar value centered on the bar
+		    if (value != null) {
+		        double x = domainAxis.getCategoryMiddle(column, getColumnCount(), dataArea, plot.getDomainAxisEdge());
+		        double y = rangeAxis.valueToJava2D(value.doubleValue(), dataArea, plot.getRangeAxisEdge());
 
-				// Convert the value to a string
-				String label = value.toString();
+		        // Adjust the position for values less than 5000 on the y-axis
+		        if (value.doubleValue() < 6500) {
+		            y -= 40; // Adjust the y-coordinate by subtracting a value (e.g., 20 pixels)
+		        }
 
-				// Draw the label on the bar centered
-				g2.setColor(Color.BLACK); // Set color for the bar values
-				g2.rotate(-Math.PI / 2, x, y); // Rotate the graphics context for vertical text
-				FontMetrics metrics = g2.getFontMetrics(); // Get font metrics to calculate text width
-				int labelWidth = metrics.stringWidth(label); // Calculate text width
-				int xPos = (int) (x - labelWidth / 0.7); // Adjust x-coordinate for centering
-				int yPos = (int) y + metrics.getHeight() / 2; // Adjust y-coordinate for centering
-				g2.drawString(label, xPos, yPos); // Draw the text
-				g2.rotate(Math.PI / 2, x, y); // Restore the original rotation
-			}
+		        // Convert the value toFline a string
+		        String label = value.toString();
+
+		        // Draw the label on the bar centered
+		        g2.setColor(Color.BLACK); // Set color for the bar values
+		        g2.rotate(-Math.PI / 2, x, y); // Rotate the graphics context for vertical text
+		        FontMetrics metrics = g2.getFontMetrics(); // Get font metrics to calculate text width
+		        int labelWidth = metrics.stringWidth(label); // Calculate text width
+		        int xPos = (int) (x - labelWidth / 1.0); // Adjust x-coordinate for centering
+		        int yPos = (int) y + metrics.getHeight() / 2; // Adjust y-coordinate for centering
+		        g2.drawString(label, xPos, yPos); // Draw the text
+		        g2.rotate(Math.PI / 2, x, y); // ResFtore the original rotation
+		    }
 		}
 
 		private Color hexToColor(String hexCode) {
@@ -897,7 +906,7 @@ public class PdfGenerator {
 		Paragraph paragraph = new Paragraph(count + "." + heading, font);
 		paragraph.setAlignment(Element.ALIGN_LEFT);
 		paragraph.setSpacingBefore(-50);
-		paragraph.setSpacingAfter(30);
+		paragraph.setSpacingAfter(20);
 		document.add(paragraph);
 	}
 
