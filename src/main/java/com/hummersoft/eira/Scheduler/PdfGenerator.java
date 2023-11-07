@@ -261,13 +261,7 @@ public class PdfGenerator {
 		}
 	}
 
-	//private String pdfDir = "D:\\PdfReportRepo";
-	 private String pdfDir = "D:\\PdfReportRepo";
-	private String reportFileName = "Asset Management Report";
-	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
-	 private String logoImgPath = "https://eira-logo.s3.ap-south-1.amazonaws.com/Webdyn+colour+Logo.png";
-	//private String logoImgPath = "D:\\PdfReportRepo\\Webdyn colour Logo.png";
-	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
+	
 
 	public ByteArrayOutputStream generatePdfReport(Integer siteId, Timestamp fromDate, Timestamp toDate ) throws Exception {
 		
