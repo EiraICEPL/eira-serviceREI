@@ -551,6 +551,9 @@ public class PdfGenerator {
 		CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
 		LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
 		lineChartPlot.setRenderer(lineChartRenderer);
+		Color lineColor = Color.decode("#3AC9BA");
+
+		lineChartRenderer.setSeriesPaint(0, lineColor); // Assuming you have only one series, change the series index if needed
 		
 		/*
 		 * StatisticalLineAndShapeRenderer renderer = new
