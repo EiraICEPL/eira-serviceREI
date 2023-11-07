@@ -160,7 +160,9 @@ public class PdfGenerator {
 
 			try {
 				// Generate PDF report for the current site
-				ByteArrayOutputStream pdfOutputStream = generatePdfReport(siteId, sitename);
+				Date[] dateRange = dateUtil.setDateRange("last month");
+				Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
+				ByteArrayOutputStream pdfOutputStream = generatePdfReport(siteId, timestamps[0], timestamps[1]);
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
@@ -257,7 +259,7 @@ public class PdfGenerator {
 	//private String logoImgPath = "D:\\PdfReportRepo\\Webdyn colour Logo.png";
 	private Float[] logoImgScale = new Float[] { (float) 50, (float) 50 };
 
-	public ByteArrayOutputStream generatePdfReport(Integer siteId, String sitename) throws Exception {
+	public ByteArrayOutputStream generatePdfReport(Integer siteId, Timestamp fromDate, Timestamp toDate ) throws Exception {
 		
 		float leftMargin = 72;
 		float rightMargin = 72;
@@ -297,11 +299,10 @@ public class PdfGenerator {
 			DecimalFormat df = new DecimalFormat("#.00");
 			
 			// get energy details
-			Date[] dateRange = dateUtil.setDateRange("last month");
-			Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
+			
 
 			List<DailyGenerationTodayEnergyDTO> dailyGenValue = dailyGenerationService.getDgrValue(siteId, "custom",
-					timestamps[0], timestamps[1]);
+					fromDate, toDate);
 
 			for (DailyGenerationTodayEnergyDTO generation : dailyGenValue) {
 				SpecificYieldDTO specificDTO = new SpecificYieldDTO();
@@ -319,9 +320,9 @@ public class PdfGenerator {
 			}
 
 			List<EnergyPerformanceDTO> energyGenValue = energyPerformanceService.getEnergyPerformanceValue(siteId,
-					"custom", timestamps[0], timestamps[1], inv_id);
+					"custom", fromDate, toDate, inv_id);
 			
-			List<EventDTO> eventDetails = siteService.findTotalEventsBySiteIdforReports(siteId, timestamps[0], timestamps[1]);
+			List<EventDTO> eventDetails = siteService.findTotalEventsBySiteIdforReports(siteId, fromDate, toDate);
 			
 
 			HeaderFooter event = new HeaderFooter(logoImgPath);
