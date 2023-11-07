@@ -1,5 +1,6 @@
 package com.hummersoft.eira.service;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -82,6 +83,12 @@ public class SiteServiceImpl implements SiteService{
 	public int findTodayEvent(int siteId) {
 		// TODO Auto-generated method stub
 		return eventRepo.findTodayEventsBySiteId(siteId);
+	}
+	
+	@Override
+	public List<EventDTO> findTotalEventsBySiteIdforReports(int equipmentId, Timestamp fdate, Timestamp tdate) {
+		// TODO Auto-generated method stub
+		return eventRepo.findTotalEventsBySiteIdforReports(equipmentId, fdate, tdate);
 	}
 
 }

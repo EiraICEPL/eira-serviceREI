@@ -51,4 +51,14 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Integer>{
 	            "AND et.categoryid IN (4, 15, 18, 47) " +
 	            "AND e.activeflag = 1 order by customernaming asc", nativeQuery = true)
 	    List<Object[]> findEquipmentBySiteId(@Param("siteId") BigInteger siteId);
+	    
+	    
+	    @Query(value ="select count (mequip.equipmentid) ,etype.equipmenttype,cat.equipmentcategory from mequipment mequip "
+		 		+ "left outer join mEquipmentType etype on etype.EquipmentTypeID=mequip.EquipmentTypeID and etype.ActiveFlag='1' "
+		 		+ "left outer join mEquipmentCategory cat on etype.CategoryId =cat.CategoryId  and cat.activeflag='1' "
+		 		+ "where mequip.siteid=1189 and mequip.ActiveFlag='1' and cat.equipmentcategory in "
+		 		+ "('CENTRLINVRTR','STRINGINVRTR','Primary Energy Meter','Secondary Energy Meter','STRINGCOMBINER','Tracker Sensor',"
+		 		+ " 'WEATHRSTION') group by etype.equipmenttype,cat.equipmentcategory",nativeQuery=true)
+		 List<Object[]> findEquipmentStatistics(@Param("siteId") BigInteger siteId);
+	    
 }

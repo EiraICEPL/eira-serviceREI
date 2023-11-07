@@ -22,5 +22,5 @@ public interface EquipmentService {
 	
 	List<Map<String, Object>> findEquipmentBySiteId(BigInteger siteId);
 
-	
+	List<Object[]> findEquipmentStatistics(BigInteger siteId);
 }

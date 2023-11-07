@@ -1,5 +1,6 @@
 package com.hummersoft.eira.service;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,5 +29,7 @@ public interface SiteService {
 	List<EventDTO> findEventsBySite(int equipmentId);
 	
 	int findTodayEvent(int siteId);
+	
+	List<EventDTO> findTotalEventsBySiteIdforReports(int equipmentId,Timestamp fdate,Timestamp tdate);
 
 }
