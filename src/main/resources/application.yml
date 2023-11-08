@@ -17,7 +17,7 @@ spring:
 report:
   siteTable: Site Name, Type, Capacity
   eventTable: Equipment Name, Error Message, Event Time, Occurence
-  energyTable: Date, Energy Generated (kWh), Specific Yield, Co2 Avoided
+  energyTable: Date, Energy Generated (kWh), Specific Yield, Co2 Avoided (in T)
   equipmentTable: Equipment Category, Equipment Type, No. of Equipment
   siteStatistics: Total Generation, CUF (%), Total Alarms
   

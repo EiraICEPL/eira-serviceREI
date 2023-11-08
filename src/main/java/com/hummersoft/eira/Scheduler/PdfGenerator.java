@@ -126,7 +126,7 @@ public class PdfGenerator {
 	@Value("${report.siteStatistics}")
 	private List<String> sitestatsTable;
 		
-	private String pdfDir = "S:\\Gradle";
+	private String pdfDir = "D:\\PdfReportRepo";
 	private String reportFileName = "Asset Management Report";
 	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
 	private String logoImgPath = "https://eira-logo.s3.ap-south-1.amazonaws.com/Webdyn+colour+Logo.png";
@@ -155,8 +155,8 @@ public class PdfGenerator {
 
 	Map<Integer, String> EquipMap;
 	
-	@Scheduled(cron = "0 */1 * * * ?")
-	//@Scheduled(cron = "0 0 0 8 * *")
+	//@Scheduled(cron = "0 */1 * * * ?")
+	@Scheduled(cron = "0 0 0 8 * *")
 	public void sendEmailsWithPDFAttachments() {
 	
 		// Get the list of UserReportMap objects by time period for different sites
@@ -176,10 +176,10 @@ public class PdfGenerator {
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
-				savePdfLocally(pdfOutputStream, fileName);
+				//savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
-				//sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
+				sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -743,14 +743,22 @@ public class PdfGenerator {
 	        Map<String, Map<String, String>> datewiseEnergyMap = new TreeMap<>();
 
 	        String prevDate = null;
+	        int columnLength = EquipMap.size()>9?8:EquipMap.size();
+			int columnLength1 = EquipMap.size()>9 ? (EquipMap.size()-columnLength):EquipMap.size();
+			int equipmentCount = 1;
+			int newTablecount =1;
 
-	        PdfPTable table = new PdfPTable(EquipMap.size() + 1);
+	        PdfPTable table = new PdfPTable(columnLength + 1);
 	        table.setWidthPercentage(100);
 	        
 	        addTableHeader(table, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
 
 	        for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	        	equipmentCount++;
 	            addTableHeader(table, set.getValue(), invheaderFont, headerBackgroundColor, headerBorderColor);
+	            
+	            if (equipmentCount==9)
+					break;
 	        }
 
 	        for (EnergyPerformanceDTO performanceDTO : energyGenValue) {
@@ -770,15 +778,48 @@ public class PdfGenerator {
 	        }
 
 	        for (String key : datewiseEnergyMap.keySet()) {
+	        	equipmentCount=1;
 	            addTableRowCenter(table, key, invrowFont, totalTableBorderColor);
 	            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
 	            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	            	equipmentCount++;
 	                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "");
 	                addTableRowCenter(table, inverterEnergy, invrowFont, totalTableBorderColor);
+	                
+	                if (equipmentCount==9)
+						break;
 	            }
 	        }
 
 	        document.add(table);
+	        
+	        if (EquipMap.size() > 9) {
+	        	
+	        	 PdfPTable table2 = new PdfPTable(columnLength1 + 1);
+	 	        table2.setWidthPercentage(100);	 
+	 	       table2.setSpacingBefore(30);
+	 	        
+	 	        addTableHeader(table2, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
+		        for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+		        	newTablecount++;
+		        	if(newTablecount>9)
+		            addTableHeader(table2, set.getValue(), invheaderFont, headerBackgroundColor, headerBorderColor);		            
+		        }
+		        for (String key : datewiseEnergyMap.keySet()) {
+		        	newTablecount=1;
+		            addTableRowCenter(table2, key, invrowFont, totalTableBorderColor);
+		            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
+		            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+		            	newTablecount++;
+		            	if (newTablecount >9) {
+		                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "");
+		                addTableRowCenter(table2, inverterEnergy, invrowFont, totalTableBorderColor);
+		            	}		              
+		        }
+	        	
+	        }	
+		        document.add(table2);
+	        }
 	    } catch (Exception e) {
 	        // Handle exceptions here
 	        e.printStackTrace();
