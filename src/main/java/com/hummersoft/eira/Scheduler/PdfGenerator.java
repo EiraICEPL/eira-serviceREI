@@ -19,11 +19,11 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
@@ -517,7 +517,7 @@ public class PdfGenerator {
 	    // Create a custom renderer to set bar color and display values inside bars
 	    CategoryItemRenderer renderer = new CustomRenderer();
 
-	    JFreeChart chart = ChartFactory.createBarChart(null, "Time", "Energy Gen (kWh)", dataSet,
+	    JFreeChart chart = ChartFactory.createBarChart(null, "Date", "Energy Gen (kWh)", dataSet,
 	            PlotOrientation.VERTICAL, false, true, false);
 
 	    // Set the custom renderer as the renderer for the chart's plot
@@ -543,7 +543,7 @@ public class PdfGenerator {
 	        lineChartDataSet.setValue(specificYieldValue, "Specific Yield", formattedDay);
 	    }
 
-	    JFreeChart lineChart = ChartFactory.createLineChart(null, "Time", "Sp. Yield(kWh/kWp)", lineChartDataSet,
+	    JFreeChart lineChart = ChartFactory.createLineChart(null, "Date", "Sp. Yield(kWh/kWp)", lineChartDataSet,
 	            PlotOrientation.VERTICAL, true, true, false);
 
 	    CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
@@ -584,7 +584,7 @@ public class PdfGenerator {
 	        e.printStackTrace(); // Handle the exception according to your application's error handling strategy.
 	    }
 
-	    JFreeChart lineChart = ChartFactory.createLineChart("Inverter Performance", "Time (Day)", "Energy Gen (kWh)",
+	    JFreeChart lineChart = ChartFactory.createLineChart("Inverter Performance", "Date (Day)", "Energy Gen (kWh)",
 	            lineChartDataSet, PlotOrientation.VERTICAL, true, true, false);
 
 	    CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
@@ -739,62 +739,52 @@ public class PdfGenerator {
 	}
 
 	private void invAcEnergyTable(Document document, List<EnergyPerformanceDTO> energyGenValue) {
+	    try {
+	        Map<String, Map<String, String>> datewiseEnergyMap = new TreeMap<>();
 
-		try {
-			
-			Map<String, Map> datewiseEnergyMap = new HashMap<String, Map>();
-			Map<String, String> inverterEnergyMap = new HashMap<String, String>();
-			String date =null;
-			String prevDate = null;
-			
-			PdfPTable table = new PdfPTable(EquipMap.size() + 1);
-			table.setWidthPercentage(110);
-			
-			// table.
-			// table.set
+	        String prevDate = null;
 
-			addTableHeader(table, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
-		
-			for (Map.Entry<Integer, String> set :
-				EquipMap.entrySet()) {
-				
-				addTableHeader(table, set.getValue(), invheaderFont,
-						headerBackgroundColor, headerBorderColor);
-			}
-			
-			for (int i = 0; i < energyGenValue.size(); i++) {
-				
-				date = energyGenValue.get(i).getTimestamp();
-				
-				inverterEnergyMap.put(EquipMap.get(energyGenValue.get(i).getEquipmentId()), 
-						energyGenValue.get(i).getTodayEnergy().toString());
-				
-				if (null != prevDate && !date.equals(prevDate)) {
-					datewiseEnergyMap.put(date, inverterEnergyMap);
-					inverterEnergyMap = new HashMap<String, String>();
-				}
-				prevDate =date;
+	        PdfPTable table = new PdfPTable(EquipMap.size() + 1);
+	        table.setWidthPercentage(100);
+	        
+	        addTableHeader(table, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
 
-			}
-			Iterator iterate1 = datewiseEnergyMap.keySet().iterator();
-			while (iterate1.hasNext()) {
-				String key = (String)iterate1.next();
-				addTableRowCenter(table, key, invrowFont, totalTableBorderColor);
-				Iterator iterate2 = datewiseEnergyMap.get(key).keySet().iterator();
-				for (Map.Entry<Integer, String> set :
-					EquipMap.entrySet()) {
-				addTableRowCenter(table,(String) datewiseEnergyMap.get(key).get(set.getValue()), invrowFont, totalTableBorderColor);
-				}
-				
-			}		
-			document.add(table);
+	        for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	            addTableHeader(table, set.getValue(), invheaderFont, headerBackgroundColor, headerBorderColor);
+	        }
 
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	        for (EnergyPerformanceDTO performanceDTO : energyGenValue) {
+	            String date = performanceDTO.getTimestamp();
+	            String equipmentId = EquipMap.get(performanceDTO.getEquipmentId());
+	            String todayEnergy = performanceDTO.getTodayEnergy().toString();
 
+	            if (!date.equals(prevDate)) {
+	                Map<String, String> inverterEnergyMap = new HashMap<>();
+	                inverterEnergyMap.put(equipmentId, todayEnergy);
+	                datewiseEnergyMap.put(date, inverterEnergyMap);
+	            } else {
+	                Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(date);
+	                inverterEnergyMap.put(equipmentId, todayEnergy);
+	            }
+	            prevDate = date;
+	        }
+
+	        for (String key : datewiseEnergyMap.keySet()) {
+	            addTableRowCenter(table, key, invrowFont, totalTableBorderColor);
+	            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
+	            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "");
+	                addTableRowCenter(table, inverterEnergy, invrowFont, totalTableBorderColor);
+	            }
+	        }
+
+	        document.add(table);
+	    } catch (Exception e) {
+	        // Handle exceptions here
+	        e.printStackTrace();
+	    }
 	}
+
 
 	private static void leaveEmptyLine(Paragraph paragraph, int number) {
 		for (int i = 0; i < number; i++) {
@@ -842,12 +832,13 @@ public class PdfGenerator {
 		        double x = domainAxis.getCategoryMiddle(column, getColumnCount(), dataArea, plot.getDomainAxisEdge());
 		        double y = rangeAxis.valueToJava2D(value.doubleValue(), dataArea, plot.getRangeAxisEdge());
 
-		        // Adjust the position for values less than 5000 on the y-axis
-		        if (value.doubleValue() < 6500) {
-		            y -= 40; // Adjust the y-coordinate by subtracting a value (e.g., 20 pixels)
-		        }
+		        // Calculate the offset based on the minimum y-axis value
+		        double minYValue = rangeAxis.valueToJava2D(rangeAxis.getLowerBound(), dataArea, plot.getRangeAxisEdge());
+		        double offset = (minYValue - y) * 0.4; // You can adjust the factor (0.2 in this example) as needed
+		        
+		        y += offset; // Adjust the y-coordinate by adding the calculated offset
 
-		        // Convert the value toFline a string
+		        // Convert the value to a string
 		        String label = value.toString();
 
 		        // Draw the label on the bar centered
@@ -855,13 +846,13 @@ public class PdfGenerator {
 		        g2.rotate(-Math.PI / 2, x, y); // Rotate the graphics context for vertical text
 		        FontMetrics metrics = g2.getFontMetrics(); // Get font metrics to calculate text width
 		        int labelWidth = metrics.stringWidth(label); // Calculate text width
-		        int xPos = (int) (x - labelWidth / 1.0); // Adjust x-coordinate for centering
+		        int xPos = (int) (x - labelWidth / 8.0); // Adjust x-coordinate for centering
 		        int yPos = (int) y + metrics.getHeight() / 2; // Adjust y-coordinate for centering
 		        g2.drawString(label, xPos, yPos); // Draw the text
-		        g2.rotate(Math.PI / 2, x, y); // ResFtore the original rotation
+		        g2.rotate(Math.PI / 2, x, y); // Restore the original rotation
 		    }
 		}
-		 
+
 		private Color hexToColor(String hexCode) {
 			// Convert hexadecimal color code to Color object
 			int red = Integer.valueOf(hexCode.substring(1, 3), 16);
