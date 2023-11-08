@@ -30,6 +30,8 @@ import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
 import org.jfree.chart.axis.ValueAxis;
+import org.jfree.chart.labels.CategoryItemLabelGenerator;
+import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.BarRenderer;
@@ -124,7 +126,7 @@ public class PdfGenerator {
 	@Value("${report.siteStatistics}")
 	private List<String> sitestatsTable;
 		
-	private String pdfDir = "D:\\PdfReportRepo";
+	private String pdfDir = "S:\\Gradle";
 	private String reportFileName = "Asset Management Report";
 	private String localDateFormat = "dd MMMM yyyy HH:mm:ss";
 	private String logoImgPath = "https://eira-logo.s3.ap-south-1.amazonaws.com/Webdyn+colour+Logo.png";
@@ -144,16 +146,17 @@ public class PdfGenerator {
 	// Set font color for header text
 	Font headerFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD, new BaseColor(64, 64, 64));
 	Font rowFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.NORMAL, new BaseColor(64, 64, 64));// Dark Gray color
-	
+
 	Font invheaderFont = new Font(Font.FontFamily.TIMES_ROMAN, 8, Font.BOLD, new BaseColor(64, 64, 64));
 	Font invrowFont = new Font(Font.FontFamily.TIMES_ROMAN, 8, Font.NORMAL, new BaseColor(64, 64, 64));
 																									
 	Font pageHeaderFont = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD, BaseColor.BLACK); // header text
+    Font labelFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD, BaseColor.BLACK); // Adjust the font size (12 in this example)
 
 	Map<Integer, String> EquipMap;
 	
-	//@Scheduled(cron = "0 */1 * * * ?")
-	@Scheduled(cron = "0 0 0 8 * *")
+	@Scheduled(cron = "0 */1 * * * ?")
+	//@Scheduled(cron = "0 0 0 8 * *")
 	public void sendEmailsWithPDFAttachments() {
 	
 		// Get the list of UserReportMap objects by time period for different sites
@@ -173,10 +176,10 @@ public class PdfGenerator {
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
-				//savePdfLocally(pdfOutputStream, fileName);
+				savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
-				sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
+				//sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -521,7 +524,7 @@ public class PdfGenerator {
 	    // Create a custom renderer to set bar color and display values inside bars
 	    CategoryItemRenderer renderer = new CustomRenderer();
 
-	    JFreeChart chart = ChartFactory.createBarChart(null, "Time", "Energy Gen (KWh)", dataSet,
+	    JFreeChart chart = ChartFactory.createBarChart(null, "Time", "Energy Gen (kWh)", dataSet,
 	            PlotOrientation.VERTICAL, false, true, false);
 
 	    // Set the custom renderer as the renderer for the chart's plot
@@ -538,94 +541,79 @@ public class PdfGenerator {
 
 	    return chart;
 	}
-
 	private JFreeChart generateLineChart(List<SpecificYieldDTO> specificYieldInv) {
-		DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
-		/*
-		 * Date[] dateRange = dateUtil.setDateRange(reportMaps); Timestamp[] timestamps
-		 * = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
-		 * List<DailyGenerationTodayEnergyDTO> dailyGenValue =
-		 * dailyGenerationService.getDgrValue(siteId, "custom", timestamps[0],
-		 * timestamps[1]);
-		 */
+	    DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
 
-		for (int i = 0; i < specificYieldInv.size(); i++) {
-			String formattedDay = specificYieldInv.get(i).getTimeStamp().substring(8, 10);
-			lineChartDataSet.setValue(specificYieldInv.get(i).getSpecificYield(), "Specific Yield", formattedDay);
-		}
+	    for (int i = 0; i < specificYieldInv.size(); i++) {
+	        String formattedDay = specificYieldInv.get(i).getTimeStamp().substring(8, 10);
+	        double specificYieldValue = specificYieldInv.get(i).getSpecificYield();
+	        lineChartDataSet.setValue(specificYieldValue, "Specific Yield", formattedDay);
+	    }
 
-		JFreeChart lineChart = ChartFactory.createLineChart(null, "Time", "Sp. Yield(kWh/kWp)", lineChartDataSet,
-				PlotOrientation.VERTICAL, true, true, false);
+	    JFreeChart lineChart = ChartFactory.createLineChart(null, "Time", "Sp. Yield(kWh/kWp)", lineChartDataSet,
+	            PlotOrientation.VERTICAL, true, true, false);
 
-		CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
-		LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
-		lineChartPlot.setRenderer(lineChartRenderer);
-		Color lineColor = Color.decode("#3AC9BA");
+	    CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
+	    LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
 
-		lineChartRenderer.setSeriesPaint(0, lineColor); // Assuming you have only one series, change the series index if needed
-		
-		/*
-		 * StatisticalLineAndShapeRenderer renderer = new
-		 * StatisticalLineAndShapeRenderer(true, true); renderer.set
-		 */
-		// Set the line thickness (stroke) for all series
-		float lineWidth = 3.0f; // Adjust the line thickness as needed
+	    // Custom label generator to display values on the data points
+	    CategoryItemLabelGenerator labelGenerator = new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("0.00"));
+	    lineChartRenderer.setDefaultItemLabelGenerator(labelGenerator);
+	    lineChartRenderer.setDefaultItemLabelsVisible(true);
+	    lineChartPlot.setRenderer(lineChartRenderer);
+	    Color lineColor = Color.decode("#3AC9BA");
+	    lineChartRenderer.setSeriesPaint(0, lineColor);
+	    
+	    // Set the line thickness (stroke) for all series
+	    float lineWidth = 3.0f;
+	    for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
+	        lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth));
+	    }
 
-		for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
-			lineChartRenderer.setSeriesStroke(i, new BasicStroke(lineWidth));
-		}
-		lineChartPlot.setBackgroundPaint(null);
-		lineChartPlot.setRangeGridlinePaint(Color.gray);
-		lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
+	    lineChartPlot.setBackgroundPaint(null);
+	    lineChartPlot.setRangeGridlinePaint(Color.gray);
+	    lineChartPlot.setOutlineStroke(null);
 
-		return lineChart;
+	    return lineChart;
 	}
 
 	public JFreeChart generateMultiLineChart(List<EnergyPerformanceDTO> energyGenValue) {
-		DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
+	    DefaultCategoryDataset lineChartDataSet = new DefaultCategoryDataset();
 
-		try {
+	    try {
+	        for (EnergyPerformanceDTO energyPerformance : energyGenValue) {
+	            String category = EquipMap.get(energyPerformance.getEquipmentId());
+	            String timestamp = energyPerformance.getTimestamp();
+	            String formattedDay = timestamp.substring(8, 10);
+	            lineChartDataSet.addValue(energyPerformance.getTodayEnergy(), category, formattedDay);
+	        }
+	    } catch (Exception e) {
+	        e.printStackTrace(); // Handle the exception according to your application's error handling strategy.
+	    }
 
-			for (EnergyPerformanceDTO energyPerformance : energyGenValue) {
-				String category = EquipMap.get(energyPerformance.getEquipmentId());
-				
-				// Assuming getTimestamp() returns a String in "yyyy-MM-dd" format
-				String timestamp = energyPerformance.getTimestamp(); 
-				
-				// Extract day from "yyyy-MM-dd"
-				String formattedDay = timestamp.substring(8, 10); 
-				
-				lineChartDataSet.addValue(energyPerformance.getTodayEnergy(), category, formattedDay);
-			}
-		} catch (Exception e) {
-			e.printStackTrace(); // Handle the exception according to your application's error handling strategy.
-		}
+	    JFreeChart lineChart = ChartFactory.createLineChart("Inverter Performance", "Time (Day)", "Energy Gen (kWh)",
+	            lineChartDataSet, PlotOrientation.VERTICAL, true, true, false);
 
-		JFreeChart lineChart = ChartFactory.createLineChart("Inverter Performance", "Time (Day)", "Energy Value",
-				lineChartDataSet, PlotOrientation.VERTICAL, true, true, false);
+	    CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
+	    LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
 
-		CategoryPlot lineChartPlot = lineChart.getCategoryPlot();
-		LineAndShapeRenderer lineChartRenderer = new LineAndShapeRenderer();
-		lineChartPlot.setRenderer(lineChartRenderer);
-		lineChartPlot.setBackgroundPaint(null);
+	    // Set shapes (data points) to not visible for all series
+	    for (int i = 0; i < lineChartDataSet.getRowCount(); i++) {
+	        lineChartRenderer.setSeriesShapesVisible(i, false);
+	    }
 
-		lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
-		lineChartPlot.setRangeGridlinePaint(Color.gray);
-		// Set category label positions to avoid overlapping on the X-axis
-		CategoryAxis domainAxis = lineChartPlot.getDomainAxis();
-		domainAxis.setCategoryLabelPositions(CategoryLabelPositions.createUpRotationLabelPositions(Math.PI / 6.0));
-	
-		
-		/*
-		 * LegendItemCollection legend = new LegendItemCollection(); for (int i = 0; i <
-		 * seriecCount; ++i) { lineChart.getXYPlot().getRenderer().setSeriesPaint(i,
-		 * colorPalette.get(i)); LegendItem li = new LegendItem(data.getSeriesName(i),
-		 * "-", null, null, Plot.DEFAULT_LEGEND_ITEM_BOX, colorPalette.get(i));
-		 * legend.add(li); } chart.getXYPlot().setFixedLegendItems(legend);
-		 */
+	    lineChartPlot.setRenderer(lineChartRenderer);
+	    lineChartPlot.setBackgroundPaint(null);
+	    lineChartPlot.setOutlineStroke(null); // Remove the outline (border)
+	    lineChartPlot.setRangeGridlinePaint(Color.gray);
 
-		return lineChart;
+	    // Set category label positions to avoid overlapping on the X-axis
+	    CategoryAxis domainAxis = lineChartPlot.getDomainAxis();
+	    domainAxis.setCategoryLabelPositions(CategoryLabelPositions.createUpRotationLabelPositions(Math.PI / 6.0));
+
+	    return lineChart;
 	}
+
 
 	public JFreeChart generateMultiBarChart(List<EnergyPerformanceDTO> energyGenValue) {
 		DefaultCategoryDataset barChartDataSet = new DefaultCategoryDataset();
@@ -764,7 +752,7 @@ public class PdfGenerator {
 			String prevDate = null;
 			
 			PdfPTable table = new PdfPTable(EquipMap.size() + 1);
-			table.setWidthPercentage(100);
+			table.setWidthPercentage(110);
 			
 			// table.
 			// table.set
