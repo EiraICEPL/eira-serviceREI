@@ -377,14 +377,7 @@ public class PdfGenerator {
 			// Second Section: MultiLine Chart
 			//document.newPage();
 			//writer.setPageEvent(event);
-			
-			document.newPage();
-			writer.setPageEvent(event);
-			leaveEmptyLine(emptyLinesParagraph, -4); // Add 1 empty line
-			 document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Co2 Avoided", headingCount++);
-			addCo2Avoided(document, dailyGenValue);
-			
+									
 			document.newPage();
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, -3); // Add 1 empty line
@@ -667,7 +660,7 @@ public class PdfGenerator {
 	 * addChartToDocument(document, chartImage); }
 	 */
 
-	private void addCo2Avoided(Document document, List<DailyGenerationTodayEnergyDTO> dailyGenValue) {
+	/* private void addCo2Avoided(Document document, List<DailyGenerationTodayEnergyDTO> dailyGenValue) {
 		try {
 			
 			// Define the column widths (adjust these values as needed)
@@ -692,7 +685,7 @@ public class PdfGenerator {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
+	}*/
 	
 	private void addEnergyDetails(Document document, List<DailyGenerationTodayEnergyDTO> dailyGenValue, Double capacity ) {
 		try {
@@ -708,10 +701,13 @@ public class PdfGenerator {
 			for (int i = 0; i < dailyGenValue.size(); i++) {
 				
 				String yield = String.format("%.2f", dailyGenValue.get(i).getTodayEnergy()/capacity);
+				Double co2Avoided = .00067 * dailyGenValue.get(i).getTodayEnergy();
 				addTableRowCenter(table, dailyGenValue.get(i).getTimestamp(), rowFont, totalTableBorderColor);
 				addTableRowCenter(table, dailyGenValue.get(i).getTodayEnergy().toString() , rowFont, totalTableBorderColor);
 				//addTableRow(table, dailyGenValue.get(i).getIrradiation().toString(), rowFont, totalTableBorderColor);
-				addTableRowCenter(table,yield , rowFont, totalTableBorderColor);	
+				addTableRowCenter(table,yield , rowFont, totalTableBorderColor);
+				addTableRowCenter(table,String.format("%.2f",co2Avoided), rowFont,
+						totalTableBorderColor);
 
 			}
 
