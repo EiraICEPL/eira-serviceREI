@@ -39,12 +39,9 @@ import org.jfree.chart.renderer.category.LineAndShapeRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -155,8 +152,8 @@ public class PdfGenerator {
 
 	Map<Integer, String> EquipMap;
 	
-	// @Scheduled(cron = "0 0 * * * ?")
-	@Scheduled(cron = "0 */1 * * * ?")
+	//@Scheduled(cron = "0 */1 * * * ?")
+	@Scheduled(cron = "0 0 0 8 * *")
 	public void sendEmailsWithPDFAttachments() {
 	
 		// Get the list of UserReportMap objects by time period for different sites
@@ -176,10 +173,10 @@ public class PdfGenerator {
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
-				savePdfLocally(pdfOutputStream, fileName);
+				//savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
-				//sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
+				sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -237,7 +234,7 @@ public class PdfGenerator {
 			document.add(table1);
 			
 			
-			addSubSectionHeading(document,site.get().getSiteName()+" - Performance", 1.1);
+			addSubSectionHeading(document,site.get().getSiteName()+" - Performance", 1.2);
 			PdfPTable table2 = new PdfPTable(sitestatsTable.size());
 			table2.setWidthPercentage(100);
 			table2.setSpacingAfter(10f);
@@ -374,7 +371,7 @@ public class PdfGenerator {
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, -2); 
 			 document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Energy Generation - Daywise", headingCount++);
+			addSectionHeading(document, "Energy Generation - Details", headingCount++);
 			addEnergyDetails(document, dailyGenValue,installationCap);
 			
 			// Second Section: MultiLine Chart
@@ -391,7 +388,8 @@ public class PdfGenerator {
 			document.newPage();
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, -3); // Add 1 empty line
-			 document.add(emptyLinesParagraph);
+			document.add(emptyLinesParagraph);
+			addSectionHeading(document, "Inverter AC Energy Details", headingCount++);
 			invAcEnergyTable(document, energyGenValue);
 			
 		
@@ -405,7 +403,6 @@ public class PdfGenerator {
 
 			document.close();
 
-			System.out.println("------------------Your PDF Report is ready!-------------------------");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -416,7 +413,13 @@ public class PdfGenerator {
 	private void createMultiLineChartPage(Document document, List<EnergyPerformanceDTO> energyGenValue)
 			throws Exception {
 		JFreeChart multiLineChart = generateMultiLineChart(energyGenValue);
-		Image chartImage = getImageFromChart(multiLineChart);
+		int width = 1000;
+		int height = 500;
+		java.awt.Image awtImage = multiLineChart.createBufferedImage(width, height);
+		com.itextpdf.text.Image chartImage = com.itextpdf.text.Image.getInstance(awtImage, null);
+		chartImage.scalePercent(51); // Adjust scale as needed
+		
+		//Image chartImage = getImageFromChart(multiLineChart);
 		chartImage.setSpacingBefore(-30);
 		addChartToDocument(document, chartImage);
 	}
@@ -505,8 +508,14 @@ public class PdfGenerator {
 	    DefaultCategoryDataset dataSet = new DefaultCategoryDataset();
 
 	    for (int i = 0; i < dailyGenValue.size(); i++) {
+	    	
+			// Assuming getTimestamp() returns a String in "yyyy-MM-dd" format
+			String timestamp = dailyGenValue.get(i).getTimestamp(); 
+			
+			// Extract day from "yyyy-MM-dd"
+			String formattedDay = timestamp.substring(8, 10); 
 	        // Incrementing the index by 1 to start the axis values from 1
-	        dataSet.setValue(dailyGenValue.get(i).getTodayEnergy(), "Energy Gen", Integer.toString(i + 1));
+	        dataSet.setValue(dailyGenValue.get(i).getTodayEnergy(), "Energy Gen", formattedDay);
 	    }
 
 	    // Create a custom renderer to set bar color and display values inside bars
@@ -579,9 +588,13 @@ public class PdfGenerator {
 
 			for (EnergyPerformanceDTO energyPerformance : energyGenValue) {
 				String category = EquipMap.get(energyPerformance.getEquipmentId());
-				String timestamp = energyPerformance.getTimestamp(); // Assuming getTimestamp() returns a String in
-																		// "yyyy-MM-dd" format
-				String formattedDay = timestamp.substring(8, 10); // Extract day from "yyyy-MM-dd"
+				
+				// Assuming getTimestamp() returns a String in "yyyy-MM-dd" format
+				String timestamp = energyPerformance.getTimestamp(); 
+				
+				// Extract day from "yyyy-MM-dd"
+				String formattedDay = timestamp.substring(8, 10); 
+				
 				lineChartDataSet.addValue(energyPerformance.getTodayEnergy(), category, formattedDay);
 			}
 		} catch (Exception e) {
@@ -601,6 +614,15 @@ public class PdfGenerator {
 		// Set category label positions to avoid overlapping on the X-axis
 		CategoryAxis domainAxis = lineChartPlot.getDomainAxis();
 		domainAxis.setCategoryLabelPositions(CategoryLabelPositions.createUpRotationLabelPositions(Math.PI / 6.0));
+	
+		
+		/*
+		 * LegendItemCollection legend = new LegendItemCollection(); for (int i = 0; i <
+		 * seriecCount; ++i) { lineChart.getXYPlot().getRenderer().setSeriesPaint(i,
+		 * colorPalette.get(i)); LegendItem li = new LegendItem(data.getSeriesName(i),
+		 * "-", null, null, Plot.DEFAULT_LEGEND_ITEM_BOX, colorPalette.get(i));
+		 * legend.add(li); } chart.getXYPlot().setFixedLegendItems(legend);
+		 */
 
 		return lineChart;
 	}
@@ -739,7 +761,6 @@ public class PdfGenerator {
 			Map<String, Map> datewiseEnergyMap = new HashMap<String, Map>();
 			Map<String, String> inverterEnergyMap = new HashMap<String, String>();
 			String date =null;
-			addSectionHeading(document, "Inverter AC Energy Table", 7);
 			String prevDate = null;
 			
 			PdfPTable table = new PdfPTable(EquipMap.size() + 1);
@@ -776,10 +797,11 @@ public class PdfGenerator {
 				String key = (String)iterate1.next();
 				addTableRowCenter(table, key, invrowFont, totalTableBorderColor);
 				Iterator iterate2 = datewiseEnergyMap.get(key).keySet().iterator();
-				while (iterate2.hasNext()) {
-					String key1 = (String)iterate2.next();
-					addTableRowCenter(table,(String) datewiseEnergyMap.get(key).get(key1), invrowFont, totalTableBorderColor);
+				for (Map.Entry<Integer, String> set :
+					EquipMap.entrySet()) {
+				addTableRowCenter(table,(String) datewiseEnergyMap.get(key).get(set.getValue()), invrowFont, totalTableBorderColor);
 				}
+				
 			}		
 			document.add(table);
 
@@ -965,14 +987,14 @@ public class PdfGenerator {
 			MimeMessage message = javaMailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, true);
 			helper.setTo(recipientEmail);
-			helper.setSubject("Monthly Report");
-			helper.setText("Please find the monthly report attached.");
+			helper.setSubject("Asset Manangement Report for site:"+sitename);
+			//helper.setText("Please find attached the report for the site - ");
 
 			// Attach the PDF report
 			helper.addAttachment(fileName, new ByteArrayResource(pdfData));
 
 			// Set site name on the first page
-			helper.setText("<h2>" + sitename + "</h2>", true); // HTML content for the email body
+			helper.setText("Please find attached the report for the site - <h2>" + sitename + "</h2>", true); // HTML content for the email body
 
 			// Send the email
 			javaMailSender.send(message);
