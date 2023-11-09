@@ -56,6 +56,7 @@ import com.hummersoft.eira.common.DateUtil.HeaderFooter;
 import com.hummersoft.eira.dto.DailyGenerationTodayEnergyDTO;
 import com.hummersoft.eira.dto.EnergyPerformanceDTO;
 import com.hummersoft.eira.dto.EquipmentDTO;
+import com.hummersoft.eira.dto.EquipmentSpecificYieldDTO;
 import com.hummersoft.eira.dto.EventDTO;
 import com.hummersoft.eira.dto.SpecificYieldDTO;
 import com.hummersoft.eira.model.Site;
@@ -154,9 +155,10 @@ public class PdfGenerator {
     Font labelFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD, BaseColor.BLACK); // Adjust the font size (12 in this example)
 
 	Map<Integer, String> EquipMap;
+	int noOfDays;
 	
 	//@Scheduled(cron = "0 */1 * * * ?")
-	@Scheduled(cron = "0 0 0 8 * *")
+	@Scheduled(cron = "0 0 0 10 * *")
 	public void sendEmailsWithPDFAttachments() {
 	
 		// Get the list of UserReportMap objects by time period for different sites
@@ -172,6 +174,7 @@ public class PdfGenerator {
 				// Generate PDF report for the current site
 				Date[] dateRange = dateUtil.setDateRange("last month");
 				Timestamp[] timestamps = dateUtil.formatTimestamps(dateRange[0], dateRange[1]);
+				noOfDays = timestamps[1].getDate()-timestamps[0].getDate();
 				ByteArrayOutputStream pdfOutputStream = generatePdfReport(siteId, timestamps[0], timestamps[1]);
 
 				// Save the PDF report locally (optional)
@@ -249,7 +252,7 @@ public class PdfGenerator {
 			}
 			
 			addTableRowCenter(table2,String.format("%.2f",totalEnergy)+" kWh", rowFont, totalTableBorderColor);
-			addTableRowCenter(table2,String.format("%.2f",totalEnergy/(site.get().getInstallationCapacity() * 24 * 31) *100), rowFont, totalTableBorderColor);
+			addTableRowCenter(table2,String.format("%.2f",totalEnergy/(site.get().getInstallationCapacity() * 24 * noOfDays) *100), rowFont, totalTableBorderColor);
 			addTableRowCenter(table2,String.valueOf(eventDetails), rowFont, totalTableBorderColor);
 			
 			document.add(table2);
@@ -279,6 +282,7 @@ public class PdfGenerator {
 
 			// get all equipments
 			List<EquipmentDTO> lstAllEquipments = siteService.listAllEquipment(siteId);
+			List<EquipmentDTO> lstEquipmentinv = new ArrayList<>();
 			List<Integer> inv_id = new ArrayList<>();
 			Double SumCapacity = 0.0;
 			Double totalEnergy = 0.0;
@@ -289,7 +293,7 @@ public class PdfGenerator {
 
 				if (lstAllEquipments.get(i).getCategory().equals("CENTRLINVRTR")
 						|| lstAllEquipments.get(i).getCategory().equals("STRINGINVRTR")) {
-					// lstEquipmentinv.add(lstAllEquipments.get(i));
+					lstEquipmentinv.add(lstAllEquipments.get(i));
 					inv_id.add(lstAllEquipments.get(i).getEquipmentId());
 					EquipMap.put(lstAllEquipments.get(i).getEquipmentId(), lstAllEquipments.get(i).getCustomerNaming());
 					Double capacity = lstAllEquipments.get(i).getCapacity();
@@ -299,10 +303,7 @@ public class PdfGenerator {
 
 			List<SpecificYieldDTO> specificYieldInv = new ArrayList<>();
 			DecimalFormat df = new DecimalFormat("#.00");
-			
-			// get energy details
-			
-
+					
 			List<DailyGenerationTodayEnergyDTO> dailyGenValue = dailyGenerationService.getDgrValue(siteId, "custom",
 					fromDate, toDate);
 
@@ -324,8 +325,33 @@ public class PdfGenerator {
 			List<EnergyPerformanceDTO> energyGenValue = energyPerformanceService.getEnergyPerformanceValue(siteId,
 					"custom", fromDate, toDate, inv_id);
 			
+			List<EquipmentSpecificYieldDTO> equSpeciYield=new ArrayList<EquipmentSpecificYieldDTO>();
+			for(EnergyPerformanceDTO generationValue : energyGenValue) {
+				EquipmentSpecificYieldDTO specificDTO =new EquipmentSpecificYieldDTO();
+//				SpecificYieldDTO specificDTO = new SpecificYieldDTO();
+				for(EquipmentDTO equipmentList : lstEquipmentinv ) {
+					if(generationValue.getEquipmentId()==equipmentList.getEquipmentId()) {
+						if(!generationValue.getTodayEnergy().equals(null)) {
+					Double equSpecificYield=(generationValue.getTodayEnergy()/equipmentList.getCapacity());
+					specificDTO.setEquipmentid(generationValue.getEquipmentId());
+					specificDTO.setTodayEnergy(generationValue.getTodayEnergy());
+					specificDTO.setTimeStamp(generationValue.getTimestamp());
+					String formatted = df.format(equSpecificYield);
+					double SpecificYieldRounded = Double.parseDouble(formatted);
+					specificDTO.setSpecificYield(SpecificYieldRounded);
+					specificDTO.setEquipmentName(equipmentList.getCustomerNaming());
+					equSpeciYield.add(specificDTO);
+					}}	
+			}
+			}
+			
 			List<EventDTO> eventDetails = siteService.findTotalEventsBySiteIdforReports(siteId, fromDate, toDate);
 			
+			/*
+			 * List<EquipmentSpecificYieldDTO> specificYieldValue=
+			 * dailyGenerationService.getSpecificYieldGenerationValue(siteId, "custom",
+			 * fromDate, toDate);
+			 */
 
 			HeaderFooter event = new HeaderFooter(logoImgPath);
 			PdfWriter writer = PdfWriter.getInstance(document, outputStream);
@@ -363,12 +389,12 @@ public class PdfGenerator {
 			addSectionHeading(document, "Specific Yield", headingCount++);
 			createLineChartPage(document, specificYieldInv);
 
-			document.newPage();
-			writer.setPageEvent(event);
-			leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
-			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Inverter Performance", headingCount++);
-			createMultiLineChartPage(document, energyGenValue);
+			//document.newPage();
+			//writer.setPageEvent(event);
+			//leaveEmptyLine(emptyLinesParagraph, 1); // Add 1 empty line
+			//document.add(emptyLinesParagraph);
+			//addSectionHeading(document, "Inverter Performance", headingCount++);
+			//createMultiLineChartPage(document, energyGenValue);
 			
 			document.newPage();
 			writer.setPageEvent(event);
@@ -388,6 +414,12 @@ public class PdfGenerator {
 			addSectionHeading(document, "Inverter AC Energy Details", headingCount++);
 			invAcEnergyTable(document, energyGenValue);
 			
+			document.newPage();
+			writer.setPageEvent(event);
+			leaveEmptyLine(emptyLinesParagraph, -3); // Add 1 empty line
+			document.add(emptyLinesParagraph);
+			addSectionHeading(document, "Inverter Specific Yield Details", headingCount++);
+			invSpecificYieldTable(document, equSpeciYield);
 		
 			document.newPage();
 			writer.setPageEvent(event);
@@ -525,7 +557,7 @@ public class PdfGenerator {
 	    plot.setRenderer(renderer);
 	    plot.setBackgroundPaint(null);
 	    plot.setOutlineStroke(null); // Remove the outline (border)
-	    plot.setRangeGridlinePaint(Color.gray); // Set grid line color to white (same as background)
+	    //plot.setRangeGridlinePaint(Color.gray); // Set grid line color to white (same as background)
 
 	    // Set custom category axis to start from 1
 	    CategoryAxis domainAxis = (CategoryAxis) plot.getDomainAxis();
@@ -564,7 +596,7 @@ public class PdfGenerator {
 	    }
 
 	    lineChartPlot.setBackgroundPaint(null);
-	    lineChartPlot.setRangeGridlinePaint(Color.gray);
+	    //lineChartPlot.setRangeGridlinePaint(Color.gray);
 	    lineChartPlot.setOutlineStroke(null);
 
 	    return lineChart;
@@ -723,9 +755,9 @@ public class PdfGenerator {
 
 			for (int i = 0; i < eventDetails.size(); i++) {
 				
-				addTableRow(table, eventDetails.get(i).getEquipmentName(), rowFont, totalTableBorderColor);
-				addTableRow(table, eventDetails.get(i).getErrorMessage(), rowFont, totalTableBorderColor);
-				addTableRow(table, eventDetails.get(i).getEventTimestampText(), rowFont, totalTableBorderColor);
+				addTableRowCenter(table, eventDetails.get(i).getEquipmentName(), rowFont, totalTableBorderColor);
+				addTableRowCenter(table, eventDetails.get(i).getErrorMessage(), rowFont, totalTableBorderColor);
+				addTableRowCenter(table, eventDetails.get(i).getEventTimestampText(), rowFont, totalTableBorderColor);
 				addTableRowCenter(table, eventDetails.get(i).getEventOccurrence().toString(), rowFont, totalTableBorderColor);	
 				
 				if (i==10)
@@ -826,7 +858,97 @@ public class PdfGenerator {
 	    }
 	}
 
+	//add specific yield
+	private void invSpecificYieldTable(Document document, List<EquipmentSpecificYieldDTO> yieldValue) {
+	    try {
+	        Map<String, Map<String, String>> datewiseEnergyMap = new TreeMap<>();
 
+	        String prevDate = null;
+	        int columnLength = EquipMap.size()>9?8:EquipMap.size();
+			int columnLength1 = EquipMap.size()>9 ? (EquipMap.size()-columnLength):EquipMap.size();
+			int equipmentCount = 1;
+			int newTablecount =1;
+
+	        PdfPTable table = new PdfPTable(columnLength + 1);
+	        table.setWidthPercentage(100);
+	        
+	        addTableHeader(table, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
+
+	        for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	        	equipmentCount++;
+	            addTableHeader(table, set.getValue(), invheaderFont, headerBackgroundColor, headerBorderColor);
+	            
+	            if (equipmentCount==9)
+					break;
+	        }
+
+	        for (EquipmentSpecificYieldDTO yieldDTO : yieldValue) {
+	            String date = yieldDTO.getTimeStamp();
+	            String equipmentId = EquipMap.get(yieldDTO.getEquipmentid());
+	            String specificYield = yieldDTO.getSpecificYield().toString();
+
+	            if (!date.equals(prevDate)) {
+	                Map<String, String> inverterEnergyMap = new HashMap<>();
+	                inverterEnergyMap.put(equipmentId, specificYield);
+	                datewiseEnergyMap.put(date, inverterEnergyMap);
+	            } else {
+	                Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(date);
+	                inverterEnergyMap.put(equipmentId, specificYield);
+	            }
+	            prevDate = date;
+	        }
+
+	        for (String key : datewiseEnergyMap.keySet()) {
+	        	equipmentCount=1;
+	            addTableRowCenter(table, key, invrowFont, totalTableBorderColor);
+	            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
+	            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	            	equipmentCount++;
+	                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "");
+	                addTableRowCenter(table, inverterEnergy, invrowFont, totalTableBorderColor);
+	                
+	                if (equipmentCount==9)
+						break;
+	            }
+	        }
+
+	        document.add(table);
+	        
+	        if (EquipMap.size() > 9) {
+	        	
+	        	 PdfPTable table2 = new PdfPTable(columnLength1 + 1);
+	 	        table2.setWidthPercentage(100);	 
+	 	       table2.setSpacingBefore(30);
+	 	        
+	 	        addTableHeader(table2, "Date", invheaderFont, headerBackgroundColor, headerBorderColor);
+		        for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+		        	newTablecount++;
+		        	if(newTablecount>9)
+		            addTableHeader(table2, set.getValue(), invheaderFont, headerBackgroundColor, headerBorderColor);		            
+		        }
+		        for (String key : datewiseEnergyMap.keySet()) {
+		        	newTablecount=1;
+		            addTableRowCenter(table2, key, invrowFont, totalTableBorderColor);
+		            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
+		            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+		            	newTablecount++;
+		            	if (newTablecount >9) {
+		                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "");
+		                addTableRowCenter(table2, inverterEnergy, invrowFont, totalTableBorderColor);
+		            	}		              
+		        }
+	        	
+	        }	
+		        document.add(table2);
+	        }
+	    } catch (Exception e) {
+	        // Handle exceptions here
+	        e.printStackTrace();
+	    }
+	}
+	
+	
+	
 	private static void leaveEmptyLine(Paragraph paragraph, int number) {
 		for (int i = 0; i < number; i++) {
 			paragraph.add(new Paragraph(" "));
