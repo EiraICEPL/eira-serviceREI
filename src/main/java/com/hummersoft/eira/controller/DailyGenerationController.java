@@ -22,9 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hummersoft.eira.dto.DailyGenerationTodayEnergyDTO;
+import com.hummersoft.eira.dto.EnergyPerformanceDTO;
 import com.hummersoft.eira.dto.EquipmentDTO;
+import com.hummersoft.eira.dto.EquipmentSpecificYieldDTO;
 import com.hummersoft.eira.dto.SpecificYieldDTO;
 import com.hummersoft.eira.service.DailyGenerationService;
+import com.hummersoft.eira.service.EnergyPerformanceService;
 import com.hummersoft.eira.service.SiteService;
 
 @RestController
@@ -37,6 +40,9 @@ public class DailyGenerationController {
 
 	@Autowired
 	private SiteService siteService;
+	
+	@Autowired
+	private EnergyPerformanceService energyPerformanceService;
 
 	@PostMapping("/genvalue")
 	// @CrossOrigin(origins = "*", allowedHeaders = "*")
@@ -113,6 +119,71 @@ public class DailyGenerationController {
 			}
 
 			return specificYieldInv;
+
+		} catch (JsonProcessingException | ParseException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	@PostMapping("/equSpecificYield/daily")
+	public List<EquipmentSpecificYieldDTO> getDailyEquSpecificYieldValue(@RequestBody Object specificyield) {
+		ObjectMapper objectMapper = new ObjectMapper();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		try {
+			DecimalFormat df = new DecimalFormat("#.00");
+			String jsonString = objectMapper.writeValueAsString(specificyield);
+			JSONObject jsonobj = new JSONObject(jsonString);
+			String strFDate = jsonobj.getString("FromDate") + " 00:05:00";
+			String strTDate = jsonobj.getString("ToDate") + " 13:30:00";
+			Date fromDateP = dateFormat.parse(strFDate);
+			Date toDateP = dateFormat.parse(strTDate);
+			Timestamp fDate = new Timestamp(fromDateP.getTime());
+			Timestamp tdate = new Timestamp(toDateP.getTime());
+//			List<DailyGenerationTodayEnergyDTO> genValue = dailyGenerationService.getSpecificYieldGenerationValue(
+//					jsonobj.getInt("SiteId"), jsonobj.getString("Range"), fDate, tdate);
+//			Optional<Site> site = siteService.getSiteById(jsonobj.getInt("SiteId"));
+			List<EquipmentDTO> lstEquipmentinv = new ArrayList<>();
+			List<EquipmentDTO> lstAllEquipments = siteService.listAllEquipment(jsonobj.getInt("SiteId"));
+//			List<EquipmentDTO> lstAllEquipments = siteService.listAllEquipment(siteId);
+			List<EquipmentSpecificYieldDTO> equSpeciYield=new ArrayList<EquipmentSpecificYieldDTO>();
+//            EquSpecificYieldDTO siteDTO = new EquSpecificYieldDTO();
+			
+			for(int i=0; i<lstAllEquipments.size(); i++) {
+				
+				if (lstAllEquipments.get(i).getCategory().equals("CENTRLINVRTR") || lstAllEquipments.get(i).getCategory().equals("STRINGINVRTR")) {
+					lstEquipmentinv.add(lstAllEquipments.get(i));
+				}
+			}
+			List<Integer> listEquipmentIds = new ArrayList<Integer>();
+			
+			for(EquipmentDTO equipmentList : lstEquipmentinv ) {
+				
+				 listEquipmentIds.add(equipmentList.getEquipmentId());
+		}
+			List<EnergyPerformanceDTO> genValue = energyPerformanceService.getEnergyPerformanceValue(jsonobj.getInt("SiteId"),
+					jsonobj.getString("Range"), fDate, tdate, listEquipmentIds );
+			
+			for(EnergyPerformanceDTO generationValue : genValue) {
+				EquipmentSpecificYieldDTO specificDTO =new EquipmentSpecificYieldDTO();
+//				SpecificYieldDTO specificDTO = new SpecificYieldDTO();
+				for(EquipmentDTO equipmentList : lstEquipmentinv ) {
+					if(generationValue.getEquipmentId()==equipmentList.getEquipmentId()) {
+						if(!generationValue.getTodayEnergy().equals(null)) {
+					Double equSpecificYield=(generationValue.getTodayEnergy()/equipmentList.getCapacity());
+					specificDTO.setEquipmentid(generationValue.getEquipmentId());
+					specificDTO.setTodayEnergy(generationValue.getTodayEnergy());
+					specificDTO.setTimeStamp(generationValue.getTimestamp());
+					String formatted = df.format(equSpecificYield);
+					double SpecificYieldRounded = Double.parseDouble(formatted);
+					specificDTO.setSpecificYield(SpecificYieldRounded);
+					specificDTO.setEquipmentName(equipmentList.getCustomerNaming());
+					equSpeciYield.add(specificDTO);
+					}}	
+			}
+			}
+			
+		return equSpeciYield;
 
 		} catch (JsonProcessingException | ParseException e) {
 			e.printStackTrace();
