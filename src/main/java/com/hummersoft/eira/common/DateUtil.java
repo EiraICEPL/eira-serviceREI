@@ -127,7 +127,7 @@ public class DateUtil {
 
 	    public HeaderFooter(String logoPath) throws Exception {
 	        this.logo = Image.getInstance(logoPath);
-	        this.logo.scalePercent(30); // Adjust the logo size as needed
+	        this.logo.scalePercent(15); // Adjust the logo size as needed
 	    }
 
 	    public void onStartPage(PdfWriter pdfWriter, Document document) {
