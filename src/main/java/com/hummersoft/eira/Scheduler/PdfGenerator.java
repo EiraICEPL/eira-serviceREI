@@ -1,13 +1,12 @@
 package com.hummersoft.eira.Scheduler;
 
 import java.awt.BasicStroke;
-import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Paint;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,28 +27,29 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 import javax.swing.JFrame;
-import javax.swing.WindowConstants;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
+import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.labels.CategoryItemLabelGenerator;
 import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.category.CategoryItemRenderer;
 import org.jfree.chart.renderer.category.CategoryItemRendererState;
 import org.jfree.chart.renderer.category.LineAndShapeRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
-import org.jfree.chart.renderer.xy.XYBlockRenderer;
+import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.data.xy.DefaultXYZDataset;
+import org.jfree.data.xy.XYDataset;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -167,8 +167,8 @@ public class PdfGenerator {
 	Map<Integer, String> EquipMap;
 	int noOfDays;
 
-	//@Scheduled(cron = "0 */1 * * * ?")
-	 @Scheduled(cron = "0 0 0 10 * *")
+	@Scheduled(cron = "0 */1 * * * ?")
+	// @Scheduled(cron = "0 0 0 10 * *")
 	public void sendEmailsWithPDFAttachments() {
 
 		// Get the list of UserReportMap objects by time period for different sites
@@ -189,11 +189,11 @@ public class PdfGenerator {
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
-				//savePdfLocally(pdfOutputStream, fileName);
+				savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
-				sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(),
-				fileName, sitename);
+				//sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(),
+				//fileName, sitename);
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -439,7 +439,19 @@ public class PdfGenerator {
 			addSectionHeading(document, "Top 10 events by occurence", headingCount++);
 			addEvents(document, eventDetails);
 			
-			
+
+			// Add Heatmap to PDF
+			document.newPage();
+			writer.setPageEvent(event);
+			leaveEmptyLine(emptyLinesParagraph, -2);
+			document.add(emptyLinesParagraph);
+			addSectionHeading(document, "Heatmap", headingCount++);
+	        Map<String, Map<String, String>> datewiseEnergyMap = new HashMap<>();
+	        Map<String, Map<String, Double>> heatmapData = generateHeatmapData(datewiseEnergyMap);
+
+		        // Generate heatmap
+		        displayHeatmap(heatmapData);
+
 			document.close();
 
 		} catch (Exception e) {
@@ -448,7 +460,11 @@ public class PdfGenerator {
 
 		return outputStream;
 	}
+    private JFreeChart chart;  // Add this member variable
 
+	public JFreeChart getChart() {
+		return chart;
+    }
 	private void createMultiLineChartPage(Document document, List<EnergyPerformanceDTO> energyGenValue)
 			throws Exception {
 		JFreeChart multiLineChart = generateMultiLineChart(energyGenValue);
@@ -955,13 +971,89 @@ public class PdfGenerator {
 			e.printStackTrace();
 		}
 	}
-	
-	
+
+  
 	private static void leaveEmptyLine(Paragraph paragraph, int number) {
 		for (int i = 0; i < number; i++) {
 			paragraph.add(new Paragraph(" "));
 		}
 	}
+
+	
+
+    private static Map<String, Map<String, Double>> generateHeatmapData(Map<String, Map<String, String>> datewiseEnergyMap) {
+        Map<String, Map<String, Double>> heatmapData = new TreeMap<>();
+
+        for (Map.Entry<String, Map<String, String>> entry : datewiseEnergyMap.entrySet()) {
+            String date = entry.getKey();
+            Map<String, String> equipmentValues = entry.getValue();
+            Map<String, Double> convertedValues = new TreeMap<>();
+
+            for (Map.Entry<String, String> equipmentEntry : equipmentValues.entrySet()) {
+                String equipment = equipmentEntry.getKey();
+                double value = Double.parseDouble(equipmentEntry.getValue()); // Assuming values are numeric
+                convertedValues.put(equipment, value);
+            }
+
+            heatmapData.put(date, convertedValues);
+        }
+
+        return heatmapData;
+    }
+
+    private static void displayHeatmap(Map<String, Map<String, Double>> heatmapData) {
+        JFrame frame = new JFrame("Heatmap Example");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        XYDataset dataset = createDataset(heatmapData);
+        JFreeChart chart = createChart(dataset);
+        ChartPanel chartPanel = new ChartPanel(chart);
+        chartPanel.setPreferredSize(new java.awt.Dimension(800, 600));
+        frame.setContentPane(chartPanel);
+
+        frame.pack();
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+
+    private static XYDataset createDataset(Map<String, Map<String, Double>> heatmapData) {
+        XYSeriesCollection dataset = new XYSeriesCollection();
+
+        for (Map.Entry<String, Map<String, Double>> entry : heatmapData.entrySet()) {
+            String date = entry.getKey();
+            Map<String, Double> equipmentValues = entry.getValue();
+            XYSeries series = new XYSeries(date);
+
+            for (Map.Entry<String, Double> equipmentEntry : equipmentValues.entrySet()) {
+                String equipment = equipmentEntry.getKey();
+                double value = equipmentEntry.getValue();
+                series.addOrUpdate(getColumnNumber(equipment), value);
+            }
+
+            dataset.addSeries(series);
+        }
+
+        return dataset;
+    }
+
+    private static JFreeChart createChart(XYDataset dataset) {
+        return ChartFactory.createScatterPlot(
+                "Heatmap Example",
+                "Equipment",
+                "Value",
+                dataset,
+                PlotOrientation.VERTICAL,
+                true,
+                true,
+                false
+        );
+    }
+
+    private static int getColumnNumber(String equipment) {
+        // You need to implement your logic to map equipment names to column numbers.
+        // This is just a placeholder, replace it with your actual mapping logic.
+        return Integer.parseInt(equipment.replaceAll("[^0-9]", ""));
+    }
 
 	private void savePdfLocally(ByteArrayOutputStream outputStream, String fileName) {
 		try (FileOutputStream fos = new FileOutputStream(pdfDir + "\\" + fileName)) {
@@ -1137,13 +1229,7 @@ public class PdfGenerator {
 			helper.addAttachment(fileName, new ByteArrayResource(pdfData));
 
 			// Set site name on the first page
-			helper.setText("Please find attached the report for the site - <h2>" + sitename + "</h2>", true); // HTML
-																												// content
-																												// for
-																												// the
-																												// email
-																												// body
-
+			helper.setText("Please find attached the report for the site - <h2>" + sitename + "</h2>", true); 
 			// Send the email
 			javaMailSender.send(message);
 		} catch (MessagingException e) {
@@ -1155,5 +1241,80 @@ public class PdfGenerator {
 	public List<UserReportMap> getReportByTimePeriod(String timeperiod) {
 		return schedulingReportRepository.findByTimePeriod(timeperiod);
 	}
-
+//	public class HeatmapGenerator extends ApplicationFrame {
+//
+//	    public HeatmapGenerator(String title, Map<String, Map<String, String>> data) {
+//	        super(title);
+//	        CategoryDataset dataset = createDataset(data);
+//	        JFreeChart chart = createChart(dataset);
+//
+//	        ChartPanel chartPanel = new ChartPanel(chart);
+//	        chartPanel.setPreferredSize(new java.awt.Dimension(500, 270));
+//	        setContentPane(chartPanel);
+//	    }
+//
+//	    private CategoryDataset createDataset(Map<String, Map<String, String>> data) {
+//	        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+//
+//	        for (Map.Entry<String, Map<String, String>> entry : data.entrySet()) {
+//	            String rowKey = entry.getKey();
+//	            for (Map.Entry<String, String> innerEntry : entry.getValue().entrySet()) {
+//	                String columnKey = innerEntry.getKey();
+//	                double value = Double.parseDouble(innerEntry.getValue());
+//	                dataset.addValue(value, rowKey, columnKey);
+//	            }
+//	        }
+//
+//	        return dataset;
+//	    }
+//
+//	    private JFreeChart createChart(CategoryDataset dataset) {
+//	        JFreeChart chart = ChartFactory.createBarChart(
+//	                "Heatmap Example",  // chart title
+//	                "X-Axis Label",      // domain axis label
+//	                "Y-Axis Label",      // range axis label
+//	                dataset,             // data
+//	                PlotOrientation.VERTICAL,
+//	                true,                // include legend
+//	                true,
+//	                false
+//	        );
+//
+//	        chart.setBackgroundPaint(Color.white);
+//
+//	        CategoryPlot plot = (CategoryPlot) chart.getPlot();
+//	        plot.setForegroundAlpha(0.8f);
+//	        plot.setDomainGridlinesVisible(true);
+//	        plot.setDomainGridlinePaint(Color.white);
+//	        plot.setRangeGridlinePaint(Color.white);
+//
+//	        CategoryAxis domainAxis = plot.getDomainAxis();
+//	        domainAxis.setLowerMargin(0.0);
+//	        domainAxis.setUpperMargin(0.0);
+//
+//	        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+//	        rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
+//
+//	        return chart;
+//	    }
+//
+//	    public JFreeChart getChart() {
+//	        return createChart(createDataset(null));  // You might want to pass a proper dataset here
+//	    }
+//	}
+//	 private Map<String, Map<String, String>> generateHeatmapData(List<EquipmentSpecificYieldDTO> equSpeciYield) {
+//	        // Create a map to store heatmap data
+//	        Map<String, Map<String, String>> heatmapData = new HashMap<>();
+//
+//	        // Populate the map with equipment-specific yield data
+//	        for (EquipmentSpecificYieldDTO yieldDTO : equSpeciYield) {
+//	            String date = yieldDTO.getTimeStamp();
+//	            String equipmentId = yieldDTO.getEquipmentName();
+//	            String specificYield = String.valueOf(yieldDTO.getSpecificYield());
+//
+//	            heatmapData.computeIfAbsent(date, k -> new HashMap<>()).put(equipmentId, specificYield);
+//	        }
+//
+//	        return heatmapData;
+//	    }
 }
