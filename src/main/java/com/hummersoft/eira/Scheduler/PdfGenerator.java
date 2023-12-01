@@ -6,7 +6,6 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Paint;
 import java.awt.geom.Rectangle2D;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -26,14 +25,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import javax.swing.JFrame;
-
 import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
-import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.labels.CategoryItemLabelGenerator;
 import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
@@ -44,12 +39,8 @@ import org.jfree.chart.renderer.category.CategoryItemRenderer;
 import org.jfree.chart.renderer.category.CategoryItemRendererState;
 import org.jfree.chart.renderer.category.LineAndShapeRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
-import org.jfree.chart.ui.ApplicationFrame;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.data.xy.XYDataset;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -84,7 +75,9 @@ import com.itextpdf.text.Font;
 import com.itextpdf.text.Image;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Phrase;
+import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPRow;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
@@ -162,6 +155,9 @@ public class PdfGenerator {
 	Font pageHeaderFont = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD, BaseColor.BLACK); // header text
 	Font labelFont = new Font(Font.FontFamily.TIMES_ROMAN, 10, Font.BOLD, BaseColor.BLACK); // Adjust the font size (12
 
+	Font invheaderhemapFont = new Font(Font.FontFamily.TIMES_ROMAN, 4, Font.BOLD, new BaseColor(64, 64, 64));
+	Font invrowhemapFont = new Font(Font.FontFamily.TIMES_ROMAN, 4, Font.NORMAL, new BaseColor(64, 64, 64));
+
 	// in this example)
 
 	Map<Integer, String> EquipMap;
@@ -192,8 +188,8 @@ public class PdfGenerator {
 				savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
-				//sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(),
-				//fileName, sitename);
+				// sendEmailWithAttachment(recipientEmail,
+				// pdfOutputStream.toByteArray(),fileName, sitename);
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -436,21 +432,16 @@ public class PdfGenerator {
 			writer.setPageEvent(event);
 			leaveEmptyLine(emptyLinesParagraph, -4); // Add 1 empty line
 			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Top 10 events by occurence", headingCount++);
-			addEvents(document, eventDetails);
-			
+			addSectionHeading(document, "Inverter Specific Yield HeatMap", headingCount++);
+			// invSpecificYieldTable(document, equSpeciYield);
+			invSpecificYieldHeatMapTable(document, equSpeciYield);
 
-			// Add Heatmap to PDF
 			document.newPage();
 			writer.setPageEvent(event);
-			leaveEmptyLine(emptyLinesParagraph, -2);
+			leaveEmptyLine(emptyLinesParagraph, -4); // Add 1 empty line
 			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Heatmap", headingCount++);
-	        Map<String, Map<String, String>> datewiseEnergyMap = new HashMap<>();
-	        Map<String, Map<String, Double>> heatmapData = generateHeatmapData(datewiseEnergyMap);
-
-		        // Generate heatmap
-		        displayHeatmap(heatmapData);
+			addSectionHeading(document, "Top 10 events by occurence", headingCount++);
+			addEvents(document, eventDetails);
 
 			document.close();
 
@@ -460,11 +451,7 @@ public class PdfGenerator {
 
 		return outputStream;
 	}
-    private JFreeChart chart;  // Add this member variable
 
-	public JFreeChart getChart() {
-		return chart;
-    }
 	private void createMultiLineChartPage(Document document, List<EnergyPerformanceDTO> energyGenValue)
 			throws Exception {
 		JFreeChart multiLineChart = generateMultiLineChart(energyGenValue);
@@ -972,88 +959,11 @@ public class PdfGenerator {
 		}
 	}
 
-  
 	private static void leaveEmptyLine(Paragraph paragraph, int number) {
 		for (int i = 0; i < number; i++) {
 			paragraph.add(new Paragraph(" "));
 		}
 	}
-
-	
-
-    private static Map<String, Map<String, Double>> generateHeatmapData(Map<String, Map<String, String>> datewiseEnergyMap) {
-        Map<String, Map<String, Double>> heatmapData = new TreeMap<>();
-
-        for (Map.Entry<String, Map<String, String>> entry : datewiseEnergyMap.entrySet()) {
-            String date = entry.getKey();
-            Map<String, String> equipmentValues = entry.getValue();
-            Map<String, Double> convertedValues = new TreeMap<>();
-
-            for (Map.Entry<String, String> equipmentEntry : equipmentValues.entrySet()) {
-                String equipment = equipmentEntry.getKey();
-                double value = Double.parseDouble(equipmentEntry.getValue()); // Assuming values are numeric
-                convertedValues.put(equipment, value);
-            }
-
-            heatmapData.put(date, convertedValues);
-        }
-
-        return heatmapData;
-    }
-
-    private static void displayHeatmap(Map<String, Map<String, Double>> heatmapData) {
-        JFrame frame = new JFrame("Heatmap Example");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        XYDataset dataset = createDataset(heatmapData);
-        JFreeChart chart = createChart(dataset);
-        ChartPanel chartPanel = new ChartPanel(chart);
-        chartPanel.setPreferredSize(new java.awt.Dimension(800, 600));
-        frame.setContentPane(chartPanel);
-
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-    }
-
-    private static XYDataset createDataset(Map<String, Map<String, Double>> heatmapData) {
-        XYSeriesCollection dataset = new XYSeriesCollection();
-
-        for (Map.Entry<String, Map<String, Double>> entry : heatmapData.entrySet()) {
-            String date = entry.getKey();
-            Map<String, Double> equipmentValues = entry.getValue();
-            XYSeries series = new XYSeries(date);
-
-            for (Map.Entry<String, Double> equipmentEntry : equipmentValues.entrySet()) {
-                String equipment = equipmentEntry.getKey();
-                double value = equipmentEntry.getValue();
-                series.addOrUpdate(getColumnNumber(equipment), value);
-            }
-
-            dataset.addSeries(series);
-        }
-
-        return dataset;
-    }
-
-    private static JFreeChart createChart(XYDataset dataset) {
-        return ChartFactory.createScatterPlot(
-                "Heatmap Example",
-                "Equipment",
-                "Value",
-                dataset,
-                PlotOrientation.VERTICAL,
-                true,
-                true,
-                false
-        );
-    }
-
-    private static int getColumnNumber(String equipment) {
-        // You need to implement your logic to map equipment names to column numbers.
-        // This is just a placeholder, replace it with your actual mapping logic.
-        return Integer.parseInt(equipment.replaceAll("[^0-9]", ""));
-    }
 
 	private void savePdfLocally(ByteArrayOutputStream outputStream, String fileName) {
 		try (FileOutputStream fos = new FileOutputStream(pdfDir + "\\" + fileName)) {
@@ -1229,7 +1139,7 @@ public class PdfGenerator {
 			helper.addAttachment(fileName, new ByteArrayResource(pdfData));
 
 			// Set site name on the first page
-			helper.setText("Please find attached the report for the site - <h2>" + sitename + "</h2>", true); 
+			helper.setText("Please find attached the report for the site - <h2>" + sitename + "</h2>", true);
 			// Send the email
 			javaMailSender.send(message);
 		} catch (MessagingException e) {
@@ -1241,80 +1151,270 @@ public class PdfGenerator {
 	public List<UserReportMap> getReportByTimePeriod(String timeperiod) {
 		return schedulingReportRepository.findByTimePeriod(timeperiod);
 	}
-//	public class HeatmapGenerator extends ApplicationFrame {
+
+//Heatmap
+	private BaseColor[] COLOR_SCALE = { new BaseColor(188, 67, 56), // Red
+			new BaseColor(199, 78, 67), new BaseColor(203, 92, 82), new BaseColor(208, 107, 98),
+			new BaseColor(213, 122, 114), new BaseColor(217, 137, 129), new BaseColor(222, 153, 145),
+			new BaseColor(227, 166, 161), new BaseColor(250, 236, 158), // YELLOW
+			new BaseColor(249, 233, 138), new BaseColor(249, 229, 119),new BaseColor(249, 233, 138), new BaseColor(250, 236, 158),	//yellow	
+			 new BaseColor(156, 179, 231), new BaseColor(140, 166, 227),
+			new BaseColor(124, 153, 223), new BaseColor(107, 141, 219), new BaseColor(91, 128, 215),
+			new BaseColor(80, 125, 211), new BaseColor(74, 115, 209), // Blue
+			new BaseColor(55, 101, 206), };
+
+	private BaseColor getColorBasedOnValue(float specificYield) {
+		int index = (int) interpolate(specificYield, 0, 6, 0, COLOR_SCALE.length - 1);
+		index = clamp(index, 0, COLOR_SCALE.length - 1);
+		return COLOR_SCALE[index];
+	}
+
+	private int clamp(int value, int min, int max) {
+		return Math.max(min, Math.min(max, value));
+	}
+
+	// Utility method to interpolate a value within a range
+	private float interpolate(float value, float start1, float end1, float start2, float end2) {
+		return start2 + (end2 - start2) * ((value - start1) / (end1 - start1));
+	}
+
+	private void invSpecificYieldHeatMapTable(Document document, List<EquipmentSpecificYieldDTO> yieldValue) {
+	    try {
+	        Map<String, Map<String, String>> datewiseEnergyMap = new TreeMap<>();
+	        String prevDate = null;
+	        int columnLength = EquipMap.size();
+	        int equipmentCount = 1;
+
+	        List<BaseColor> usedColors = new ArrayList<>(); // Collect unique colors
+
+	        PdfPTable table = new PdfPTable(columnLength + 1);
+	        table.setWidthPercentage(100);
+	        table.getDefaultCell().setBorder(Rectangle.NO_BORDER); // Set border width to 0 to remove the table border
+
+	        addTableHeader1(table, "Date", invheaderhemapFont);
+	        for (int i = 1; i <= EquipMap.size(); i++) {
+	            equipmentCount++;
+	            addTableHeader1(table, String.valueOf(i), invheaderhemapFont);
+	        }
+
+	        float lowestValue = Float.MAX_VALUE;
+	        float highestValue = Float.MIN_VALUE;
+
+	        for (EquipmentSpecificYieldDTO yieldDTO : yieldValue) {
+	            String date = yieldDTO.getTimeStamp();
+	            String equipmentId = EquipMap.get(yieldDTO.getEquipmentid());
+	            String specificYield = yieldDTO.getSpecificYield().toString();
+
+	            float value = Float.parseFloat(specificYield);
+	            if (value < lowestValue) {
+	                lowestValue = value;
+	            }
+	            if (value > highestValue) {
+	                highestValue = value;
+	            }
+
+	            if (!date.equals(prevDate)) {
+	                Map<String, String> inverterEnergyMap = new HashMap<>();
+	                inverterEnergyMap.put(equipmentId, specificYield);
+	                datewiseEnergyMap.put(date, inverterEnergyMap);
+	            } else {
+	                Map<String, String> inverterEnergyMap = datewiseEnergyMap.computeIfAbsent(date, k -> new HashMap<>());
+	                inverterEnergyMap.put(equipmentId, specificYield);
+	            }
+	            prevDate = date;
+
+	            // Collect unique colors used in the table
+	            BaseColor color = getColorBasedOnValue(value);
+	            if (!usedColors.contains(color)) {
+	                usedColors.add(color);
+	            }
+	        }
+
+	        for (String key : datewiseEnergyMap.keySet()) {
+	            equipmentCount = 1;
+	            addTableRowCenter(table, key, invrowhemapFont, totalTableBorderColor);
+
+	            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
+	            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+	                equipmentCount++;
+	                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "0");
+	                addTableRowCenter(table, inverterEnergy, invrowhemapFont, totalTableBorderColor,
+	                        Float.parseFloat(inverterEnergy));
+	            }
+	        }
+	        for (Map.Entry<Integer, String> entry : EquipMap.entrySet()) {
+	            addTableRowCenter(table, entry.getValue(), invrowhemapFont, totalTableBorderColor);
+	        }
+
+	        // Set NO_BORDER for the entire first column
+	        for (PdfPRow row : table.getRows()) {
+	            PdfPCell[] cells = row.getCells();
+	            if (cells.length > 0) {
+	                cells[0].setBorder(Rectangle.NO_BORDER);
+	            }
+	        }
+
+	        document.add(table);
+	        addEquipmentLegends(document, EquipMap);
+
+	        // Call the updated addGradientLegend method
+	        addGradientLegend(document, usedColors, COLOR_SCALE, lowestValue, highestValue);
+
+	    } catch (Exception e) {
+	        // Handle exceptions here
+	        e.printStackTrace();
+	    }
+	}
+	
+
+	private void addTableRowCenter(PdfPTable table, String cellValue, Font font, BaseColor borderColor,
+	        float normalizedValue) {
+	    PdfPCell cell = new PdfPCell(new Phrase(cellValue, font));
+	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+
+	    // Set cell border width to 0 to remove the border
+	    cell.setBorderWidth(0);
+
+	    // Set background color based on cell value
+	    if (!cellValue.isEmpty()) {
+	        try {
+	            float value = Float.parseFloat(cellValue);
+	            BaseColor color = getColorBasedOnValue(value);
+	            cell.setBackgroundColor(color);
+
+	            // Make the text color transparent
+	            cell.setPhrase(new Phrase(cellValue, new Font(font.getBaseFont(), font.getSize(), 0, color)));
+
+	            // Set NO_BORDER for the left border of cells in the first column
+	            if (table.getRows().isEmpty()) {
+	                cell.setBorder(Rectangle.NO_BORDER);
+	            }
+	        } catch (NumberFormatException e) {
+	            // Log the error for debugging
+	            System.err.println("Error parsing float from cellValue: " + cellValue);
+	            e.printStackTrace();
+	        }
+	    }
+
+	    table.addCell(cell);
+	}
+
+
+	private void addGradientLegend(Document document, List<BaseColor> usedColors, BaseColor[] COLOR_SCALE,
+			float lowestValue, float highestValue) {
+		try {
+			PdfPTable legendTable = new PdfPTable(3);
+			legendTable.setWidthPercentage(40); // Set to 50% of page width
+			legendTable.setSpacingBefore(10);
+			legendTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
+
+			// Add the lowest value to the legendTable
+			PdfPCell lowestValueCell = new PdfPCell(
+					new Phrase("" + lowestValue, new Font(Font.FontFamily.TIMES_ROMAN, 8, 0)));
+			lowestValueCell.setBorderColor(BaseColor.WHITE);
+			lowestValueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+			legendTable.addCell(lowestValueCell);
+
+			// Add the color rectangles to the legendTable
+			PdfPTable colorRectanglesTable = new PdfPTable(COLOR_SCALE.length);
+			colorRectanglesTable.setWidthPercentage(100); // Set to 100% of legendTable width
+			for (BaseColor color : COLOR_SCALE) {
+				PdfPCell colorCell = new PdfPCell();
+				colorCell.setBackgroundColor(color);
+				colorCell.setBorderColor(BaseColor.WHITE); // Optional: Set border color to white for separation
+				colorCell.setFixedHeight(10); // Set the height of the rectangle
+				colorCell.setColspan(1); // Span across 1 column
+
+				colorRectanglesTable.addCell(colorCell);
+			}
+
+			PdfPCell colorRectanglesCell = new PdfPCell(colorRectanglesTable);
+			colorRectanglesCell.setBorderColor(BaseColor.WHITE); // Optional: Set border color to white for separation
+			colorRectanglesCell.setColspan(1); // Span across 1 column
+
+			legendTable.addCell(colorRectanglesCell);
+
+			// Add the highest value to the legendTable
+			PdfPCell highestValueCell = new PdfPCell(
+					new Phrase("" + highestValue, new Font(Font.FontFamily.TIMES_ROMAN, 8, 0)));
+			highestValueCell.setBorderColor(BaseColor.WHITE);
+			legendTable.addCell(highestValueCell);
+
+			document.add(legendTable);
+		} catch (Exception e) {
+			// Handle exceptions here
+			e.printStackTrace();
+		}
+	}
+
+	private void addTableHeader1(PdfPTable table, String header, Font font) {
+	    PdfPCell cell = new PdfPCell(new Phrase(header, font));
+	    cell.setBorder(Rectangle.NO_BORDER); // Remove border for the cell
+	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+	    cell.setPadding(7);
+	    table.addCell(cell);
+	}
 //
-//	    public HeatmapGenerator(String title, Map<String, Map<String, String>> data) {
-//	        super(title);
-//	        CategoryDataset dataset = createDataset(data);
-//	        JFreeChart chart = createChart(dataset);
+//	private void addTableRowCenter(PdfPTable table, String cellValue, Font font, float normalizedValue) {
+//	    PdfPCell cell = new PdfPCell(new Phrase(cellValue, font));
+//	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+//	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 //
-//	        ChartPanel chartPanel = new ChartPanel(chart);
-//	        chartPanel.setPreferredSize(new java.awt.Dimension(500, 270));
-//	        setContentPane(chartPanel);
-//	    }
+//	    // Set cell border width to 0 to remove the border
+//	    cell.setBorderWidth(0);
 //
-//	    private CategoryDataset createDataset(Map<String, Map<String, String>> data) {
-//	        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+//	    // Set background color based on cell value
+//	    if (!cellValue.isEmpty()) {
+//	        try {
+//	            float value = Float.parseFloat(cellValue);
+//	            BaseColor color = getColorBasedOnValue(value);
+//	            cell.setBackgroundColor(color);
 //
-//	        for (Map.Entry<String, Map<String, String>> entry : data.entrySet()) {
-//	            String rowKey = entry.getKey();
-//	            for (Map.Entry<String, String> innerEntry : entry.getValue().entrySet()) {
-//	                String columnKey = innerEntry.getKey();
-//	                double value = Double.parseDouble(innerEntry.getValue());
-//	                dataset.addValue(value, rowKey, columnKey);
-//	            }
+//	            // Make the text color transparent
+//	            cell.setPhrase(new Phrase(cellValue, new Font(font.getBaseFont(), font.getSize(), 0, color)));
+//	        } catch (NumberFormatException e) {
+//	            // Log the error for debugging
+//	            System.err.println("Error parsing float from cellValue: " + cellValue);
+//	            e.printStackTrace();
 //	        }
-//
-//	        return dataset;
 //	    }
 //
-//	    private JFreeChart createChart(CategoryDataset dataset) {
-//	        JFreeChart chart = ChartFactory.createBarChart(
-//	                "Heatmap Example",  // chart title
-//	                "X-Axis Label",      // domain axis label
-//	                "Y-Axis Label",      // range axis label
-//	                dataset,             // data
-//	                PlotOrientation.VERTICAL,
-//	                true,                // include legend
-//	                true,
-//	                false
-//	        );
-//
-//	        chart.setBackgroundPaint(Color.white);
-//
-//	        CategoryPlot plot = (CategoryPlot) chart.getPlot();
-//	        plot.setForegroundAlpha(0.8f);
-//	        plot.setDomainGridlinesVisible(true);
-//	        plot.setDomainGridlinePaint(Color.white);
-//	        plot.setRangeGridlinePaint(Color.white);
-//
-//	        CategoryAxis domainAxis = plot.getDomainAxis();
-//	        domainAxis.setLowerMargin(0.0);
-//	        domainAxis.setUpperMargin(0.0);
-//
-//	        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
-//	        rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
-//
-//	        return chart;
-//	    }
-//
-//	    public JFreeChart getChart() {
-//	        return createChart(createDataset(null));  // You might want to pass a proper dataset here
-//	    }
+//	    table.addCell(cell);
 //	}
-//	 private Map<String, Map<String, String>> generateHeatmapData(List<EquipmentSpecificYieldDTO> equSpeciYield) {
-//	        // Create a map to store heatmap data
-//	        Map<String, Map<String, String>> heatmapData = new HashMap<>();
-//
-//	        // Populate the map with equipment-specific yield data
-//	        for (EquipmentSpecificYieldDTO yieldDTO : equSpeciYield) {
-//	            String date = yieldDTO.getTimeStamp();
-//	            String equipmentId = yieldDTO.getEquipmentName();
-//	            String specificYield = String.valueOf(yieldDTO.getSpecificYield());
-//
-//	            heatmapData.computeIfAbsent(date, k -> new HashMap<>()).put(equipmentId, specificYield);
-//	        }
-//
-//	        return heatmapData;
-//	    }
+
+	private void addEquipmentLegends(Document document, Map<Integer, String> EquipMap) {
+		try {
+			PdfPTable legendTable = new PdfPTable(EquipMap.size());
+			legendTable.setWidthPercentage(100);
+			legendTable.setSpacingBefore(20);
+			legendTable.setHorizontalAlignment(Element.ALIGN_LEFT);
+
+			int number = 1; // Start with the number 1 for legends
+
+			// Specify the font size you want to use
+			float legendFontSize = 5;
+
+			// Create a Font instance with the specified size
+			Font legendFont = new Font(Font.FontFamily.TIMES_ROMAN, legendFontSize, Font.NORMAL);
+
+			// Add legends with numbers and Equipment IDs
+			for (Map.Entry<Integer, String> entry : EquipMap.entrySet()) {
+				PdfPCell legendCell = new PdfPCell(new Phrase(number + " - " + entry.getValue(), legendFont));
+				legendCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+				legendCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+				legendCell.setBorder(Rectangle.NO_BORDER);
+
+				legendTable.addCell(legendCell);
+
+				number++; // Increment the number for the next legend
+			}
+
+			document.add(legendTable);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 }
