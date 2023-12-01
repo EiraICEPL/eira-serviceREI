@@ -185,11 +185,10 @@ public class PdfGenerator {
 
 				// Save the PDF report locally (optional)
 				String fileName = sitename + "_Monthly_Report_" + df.format(new Date()) + ".pdf";
-				savePdfLocally(pdfOutputStream, fileName);
+				 //savePdfLocally(pdfOutputStream, fileName);
 
 				// Send the email with the PDF report attached
-				// sendEmailWithAttachment(recipientEmail,
-				// pdfOutputStream.toByteArray(),fileName, sitename);
+				sendEmailWithAttachment(recipientEmail, pdfOutputStream.toByteArray(), fileName, sitename);
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -365,7 +364,8 @@ public class PdfGenerator {
 			PdfWriter writer = PdfWriter.getInstance(document, outputStream);
 			document.open();
 			addLogo(document);
-			addDocTitle(document, site.get().getSiteName());
+			// Inside generatePdfReport method
+			addDocTitle(document, site.get().getSiteName(), fromDate, toDate);
 
 			int headingCount = 1;
 			Paragraph emptyLinesParagraph;
@@ -428,13 +428,13 @@ public class PdfGenerator {
 			addSectionHeading(document, "Inverter Specific Yield Details", headingCount++);
 			invSpecificYieldTable(document, equSpeciYield);
 
-			document.newPage();
-			writer.setPageEvent(event);
-			leaveEmptyLine(emptyLinesParagraph, -4); // Add 1 empty line
-			document.add(emptyLinesParagraph);
-			addSectionHeading(document, "Inverter Specific Yield HeatMap", headingCount++);
-			// invSpecificYieldTable(document, equSpeciYield);
-			invSpecificYieldHeatMapTable(document, equSpeciYield);
+//			document.newPage();
+//			writer.setPageEvent(event);
+//			leaveEmptyLine(emptyLinesParagraph, -4); // Add 1 empty line
+//			document.add(emptyLinesParagraph);
+//			addSectionHeading(document, "Inverter Specific Yield HeatMap", headingCount++);
+//			// invSpecificYieldTable(document, equSpeciYield);
+//			invSpecificYieldHeatMapTable(document, equSpeciYield);
 
 			document.newPage();
 			writer.setPageEvent(event);
@@ -517,22 +517,24 @@ public class PdfGenerator {
 		}
 	}
 
-	private void addDocTitle(Document document, String siteName) throws Exception {
-		// String localDateString =
-		// LocalDateTime.now().format(DateTimeFormatter.ofPattern(localDateFormat));
-		String lastMonthAndYear = getLastMonthAndYear();
+	private void addDocTitle(Document document, String siteName, Timestamp fromDate, Timestamp toDate)
+			throws Exception {
+		// Format the fromDate and toDate to include in the title
+		DateFormat dateFormat = new SimpleDateFormat("dd/MM/YYYY");
+		String formattedFromDate = dateFormat.format(fromDate);
+		String formattedToDate = dateFormat.format(toDate);
 
-		// Create a new paragraph for the title with adjusted spacing and alignment
+		// Your existing code for the title and subtitle
 		Font titleFont = new Font(Font.FontFamily.TIMES_ROMAN, 20, Font.BOLDITALIC);
 		Paragraph titleParagraph = new Paragraph(reportFileName, titleFont);
 		titleParagraph.setAlignment(Element.ALIGN_CENTER);
-		titleParagraph.setSpacingBefore(200); // Adjust spacing before the title
+		titleParagraph.setSpacingBefore(200);
 
-		// Create a new paragraph for the subtitle with adjusted spacing and alignment
 		Font subtitleFont = new Font(Font.FontFamily.TIMES_ROMAN, 16, Font.BOLD, new BaseColor(51, 102, 153));
-		Paragraph subtitleParagraph = new Paragraph(siteName + " - " + lastMonthAndYear, subtitleFont);
+		Paragraph subtitleParagraph = new Paragraph(siteName + " - " + formattedFromDate + " to " + formattedToDate,
+				subtitleFont);
 		subtitleParagraph.setAlignment(Element.ALIGN_CENTER);
-		subtitleParagraph.setSpacingAfter(50); // Adjust spacing after the subtitle
+		subtitleParagraph.setSpacingAfter(50);
 
 		// Add title and subtitle paragraphs to the document
 		document.add(titleParagraph);
@@ -1153,211 +1155,122 @@ public class PdfGenerator {
 	}
 
 //Heatmap
-	private BaseColor[] COLOR_SCALE = { new BaseColor(188, 67, 56), // Red
-			new BaseColor(199, 78, 67), new BaseColor(203, 92, 82), new BaseColor(208, 107, 98),
-			new BaseColor(213, 122, 114), new BaseColor(217, 137, 129), new BaseColor(222, 153, 145),
-			new BaseColor(227, 166, 161), new BaseColor(250, 236, 158), // YELLOW
-			new BaseColor(249, 233, 138), new BaseColor(249, 229, 119),new BaseColor(249, 233, 138), new BaseColor(250, 236, 158),	//yellow	
-			 new BaseColor(156, 179, 231), new BaseColor(140, 166, 227),
-			new BaseColor(124, 153, 223), new BaseColor(107, 141, 219), new BaseColor(91, 128, 215),
-			new BaseColor(80, 125, 211), new BaseColor(74, 115, 209), // Blue
-			new BaseColor(55, 101, 206), };
-
-	private BaseColor getColorBasedOnValue(float specificYield) {
-		int index = (int) interpolate(specificYield, 0, 6, 0, COLOR_SCALE.length - 1);
-		index = clamp(index, 0, COLOR_SCALE.length - 1);
-		return COLOR_SCALE[index];
-	}
-
-	private int clamp(int value, int min, int max) {
-		return Math.max(min, Math.min(max, value));
-	}
-
-	// Utility method to interpolate a value within a range
-	private float interpolate(float value, float start1, float end1, float start2, float end2) {
-		return start2 + (end2 - start2) * ((value - start1) / (end1 - start1));
-	}
-
-	private void invSpecificYieldHeatMapTable(Document document, List<EquipmentSpecificYieldDTO> yieldValue) {
-	    try {
-	        Map<String, Map<String, String>> datewiseEnergyMap = new TreeMap<>();
-	        String prevDate = null;
-	        int columnLength = EquipMap.size();
-	        int equipmentCount = 1;
-
-	        List<BaseColor> usedColors = new ArrayList<>(); // Collect unique colors
-
-	        PdfPTable table = new PdfPTable(columnLength + 1);
-	        table.setWidthPercentage(100);
-	        table.getDefaultCell().setBorder(Rectangle.NO_BORDER); // Set border width to 0 to remove the table border
-
-	        addTableHeader1(table, "Date", invheaderhemapFont);
-	        for (int i = 1; i <= EquipMap.size(); i++) {
-	            equipmentCount++;
-	            addTableHeader1(table, String.valueOf(i), invheaderhemapFont);
-	        }
-
-	        float lowestValue = Float.MAX_VALUE;
-	        float highestValue = Float.MIN_VALUE;
-
-	        for (EquipmentSpecificYieldDTO yieldDTO : yieldValue) {
-	            String date = yieldDTO.getTimeStamp();
-	            String equipmentId = EquipMap.get(yieldDTO.getEquipmentid());
-	            String specificYield = yieldDTO.getSpecificYield().toString();
-
-	            float value = Float.parseFloat(specificYield);
-	            if (value < lowestValue) {
-	                lowestValue = value;
-	            }
-	            if (value > highestValue) {
-	                highestValue = value;
-	            }
-
-	            if (!date.equals(prevDate)) {
-	                Map<String, String> inverterEnergyMap = new HashMap<>();
-	                inverterEnergyMap.put(equipmentId, specificYield);
-	                datewiseEnergyMap.put(date, inverterEnergyMap);
-	            } else {
-	                Map<String, String> inverterEnergyMap = datewiseEnergyMap.computeIfAbsent(date, k -> new HashMap<>());
-	                inverterEnergyMap.put(equipmentId, specificYield);
-	            }
-	            prevDate = date;
-
-	            // Collect unique colors used in the table
-	            BaseColor color = getColorBasedOnValue(value);
-	            if (!usedColors.contains(color)) {
-	                usedColors.add(color);
-	            }
-	        }
-
-	        for (String key : datewiseEnergyMap.keySet()) {
-	            equipmentCount = 1;
-	            addTableRowCenter(table, key, invrowhemapFont, totalTableBorderColor);
-
-	            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
-	            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
-	                equipmentCount++;
-	                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "0");
-	                addTableRowCenter(table, inverterEnergy, invrowhemapFont, totalTableBorderColor,
-	                        Float.parseFloat(inverterEnergy));
-	            }
-	        }
-	        for (Map.Entry<Integer, String> entry : EquipMap.entrySet()) {
-	            addTableRowCenter(table, entry.getValue(), invrowhemapFont, totalTableBorderColor);
-	        }
-
-	        // Set NO_BORDER for the entire first column
-	        for (PdfPRow row : table.getRows()) {
-	            PdfPCell[] cells = row.getCells();
-	            if (cells.length > 0) {
-	                cells[0].setBorder(Rectangle.NO_BORDER);
-	            }
-	        }
-
-	        document.add(table);
-	        addEquipmentLegends(document, EquipMap);
-
-	        // Call the updated addGradientLegend method
-	        addGradientLegend(document, usedColors, COLOR_SCALE, lowestValue, highestValue);
-
-	    } catch (Exception e) {
-	        // Handle exceptions here
-	        e.printStackTrace();
-	    }
-	}
-	
-
-	private void addTableRowCenter(PdfPTable table, String cellValue, Font font, BaseColor borderColor,
-	        float normalizedValue) {
-	    PdfPCell cell = new PdfPCell(new Phrase(cellValue, font));
-	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-
-	    // Set cell border width to 0 to remove the border
-	    cell.setBorderWidth(0);
-
-	    // Set background color based on cell value
-	    if (!cellValue.isEmpty()) {
-	        try {
-	            float value = Float.parseFloat(cellValue);
-	            BaseColor color = getColorBasedOnValue(value);
-	            cell.setBackgroundColor(color);
-
-	            // Make the text color transparent
-	            cell.setPhrase(new Phrase(cellValue, new Font(font.getBaseFont(), font.getSize(), 0, color)));
-
-	            // Set NO_BORDER for the left border of cells in the first column
-	            if (table.getRows().isEmpty()) {
-	                cell.setBorder(Rectangle.NO_BORDER);
-	            }
-	        } catch (NumberFormatException e) {
-	            // Log the error for debugging
-	            System.err.println("Error parsing float from cellValue: " + cellValue);
-	            e.printStackTrace();
-	        }
-	    }
-
-	    table.addCell(cell);
-	}
-
-
-	private void addGradientLegend(Document document, List<BaseColor> usedColors, BaseColor[] COLOR_SCALE,
-			float lowestValue, float highestValue) {
-		try {
-			PdfPTable legendTable = new PdfPTable(3);
-			legendTable.setWidthPercentage(40); // Set to 50% of page width
-			legendTable.setSpacingBefore(10);
-			legendTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
-
-			// Add the lowest value to the legendTable
-			PdfPCell lowestValueCell = new PdfPCell(
-					new Phrase("" + lowestValue, new Font(Font.FontFamily.TIMES_ROMAN, 8, 0)));
-			lowestValueCell.setBorderColor(BaseColor.WHITE);
-			lowestValueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-			legendTable.addCell(lowestValueCell);
-
-			// Add the color rectangles to the legendTable
-			PdfPTable colorRectanglesTable = new PdfPTable(COLOR_SCALE.length);
-			colorRectanglesTable.setWidthPercentage(100); // Set to 100% of legendTable width
-			for (BaseColor color : COLOR_SCALE) {
-				PdfPCell colorCell = new PdfPCell();
-				colorCell.setBackgroundColor(color);
-				colorCell.setBorderColor(BaseColor.WHITE); // Optional: Set border color to white for separation
-				colorCell.setFixedHeight(10); // Set the height of the rectangle
-				colorCell.setColspan(1); // Span across 1 column
-
-				colorRectanglesTable.addCell(colorCell);
-			}
-
-			PdfPCell colorRectanglesCell = new PdfPCell(colorRectanglesTable);
-			colorRectanglesCell.setBorderColor(BaseColor.WHITE); // Optional: Set border color to white for separation
-			colorRectanglesCell.setColspan(1); // Span across 1 column
-
-			legendTable.addCell(colorRectanglesCell);
-
-			// Add the highest value to the legendTable
-			PdfPCell highestValueCell = new PdfPCell(
-					new Phrase("" + highestValue, new Font(Font.FontFamily.TIMES_ROMAN, 8, 0)));
-			highestValueCell.setBorderColor(BaseColor.WHITE);
-			legendTable.addCell(highestValueCell);
-
-			document.add(legendTable);
-		} catch (Exception e) {
-			// Handle exceptions here
-			e.printStackTrace();
-		}
-	}
-
-	private void addTableHeader1(PdfPTable table, String header, Font font) {
-	    PdfPCell cell = new PdfPCell(new Phrase(header, font));
-	    cell.setBorder(Rectangle.NO_BORDER); // Remove border for the cell
-	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-	    cell.setPadding(7);
-	    table.addCell(cell);
-	}
+//	private BaseColor[] COLOR_SCALE = { new BaseColor(188, 67, 56), // Red
+//			new BaseColor(199, 78, 67), new BaseColor(203, 92, 82), new BaseColor(208, 107, 98),
+//			new BaseColor(213, 122, 114), new BaseColor(217, 137, 129), new BaseColor(222, 153, 145),
+//			new BaseColor(227, 166, 161), new BaseColor(250, 236, 158), // YELLOW
+//			new BaseColor(249, 233, 138), new BaseColor(249, 229, 119),new BaseColor(249, 233, 138), new BaseColor(250, 236, 158),	//yellow	
+//			 new BaseColor(156, 179, 231), new BaseColor(140, 166, 227),
+//			new BaseColor(124, 153, 223), new BaseColor(107, 141, 219), new BaseColor(91, 128, 215),
+//			new BaseColor(80, 125, 211), new BaseColor(74, 115, 209), // Blue
+//			new BaseColor(55, 101, 206), };
 //
-//	private void addTableRowCenter(PdfPTable table, String cellValue, Font font, float normalizedValue) {
+//	private BaseColor getColorBasedOnValue(float specificYield) {
+//		int index = (int) interpolate(specificYield, 0, 6, 0, COLOR_SCALE.length - 1);
+//		index = clamp(index, 0, COLOR_SCALE.length - 1);
+//		return COLOR_SCALE[index];
+//	}
+//
+//	private int clamp(int value, int min, int max) {
+//		return Math.max(min, Math.min(max, value));
+//	}
+//
+//	// Utility method to interpolate a value within a range
+//	private float interpolate(float value, float start1, float end1, float start2, float end2) {
+//		return start2 + (end2 - start2) * ((value - start1) / (end1 - start1));
+//	}
+//
+//	private void invSpecificYieldHeatMapTable(Document document, List<EquipmentSpecificYieldDTO> yieldValue) {
+//	    try {
+//	        Map<String, Map<String, String>> datewiseEnergyMap = new TreeMap<>();
+//	        String prevDate = null;
+//	        int columnLength = EquipMap.size();
+//	        int equipmentCount = 1;
+//
+//	        List<BaseColor> usedColors = new ArrayList<>(); // Collect unique colors
+//
+//	        PdfPTable table = new PdfPTable(columnLength + 1);
+//	        table.setWidthPercentage(100);
+//	        table.getDefaultCell().setBorder(Rectangle.NO_BORDER); // Set border width to 0 to remove the table border
+//
+//	        addTableHeader1(table, "Date", invheaderhemapFont);
+//	        for (int i = 1; i <= EquipMap.size(); i++) {
+//	            equipmentCount++;
+//	            addTableHeader1(table, String.valueOf(i), invheaderhemapFont);
+//	        }
+//
+//	        float lowestValue = Float.MAX_VALUE;
+//	        float highestValue = Float.MIN_VALUE;
+//
+//	        for (EquipmentSpecificYieldDTO yieldDTO : yieldValue) {
+//	            String date = yieldDTO.getTimeStamp();
+//	            String equipmentId = EquipMap.get(yieldDTO.getEquipmentid());
+//	            String specificYield = yieldDTO.getSpecificYield().toString();
+//
+//	            float value = Float.parseFloat(specificYield);
+//	            if (value < lowestValue) {
+//	                lowestValue = value;
+//	            }
+//	            if (value > highestValue) {
+//	                highestValue = value;
+//	            }
+//
+//	            if (!date.equals(prevDate)) {
+//	                Map<String, String> inverterEnergyMap = new HashMap<>();
+//	                inverterEnergyMap.put(equipmentId, specificYield);
+//	                datewiseEnergyMap.put(date, inverterEnergyMap);
+//	            } else {
+//	                Map<String, String> inverterEnergyMap = datewiseEnergyMap.computeIfAbsent(date, k -> new HashMap<>());
+//	                inverterEnergyMap.put(equipmentId, specificYield);
+//	            }
+//	            prevDate = date;
+//
+//	            // Collect unique colors used in the table
+//	            BaseColor color = getColorBasedOnValue(value);
+//	            if (!usedColors.contains(color)) {
+//	                usedColors.add(color);
+//	            }
+//	        }
+//
+//	        for (String key : datewiseEnergyMap.keySet()) {
+//	            equipmentCount = 1;
+//	            addTableRowCenter(table, key, invrowhemapFont, totalTableBorderColor);
+//
+//	            Map<String, String> inverterEnergyMap = datewiseEnergyMap.get(key);
+//	            for (Map.Entry<Integer, String> set : EquipMap.entrySet()) {
+//	                equipmentCount++;
+//	                String inverterEnergy = inverterEnergyMap.getOrDefault(set.getValue(), "0");
+//	                addTableRowCenter(table, inverterEnergy, invrowhemapFont, totalTableBorderColor,
+//	                        Float.parseFloat(inverterEnergy));
+//	            }
+//	        }
+//	        for (Map.Entry<Integer, String> entry : EquipMap.entrySet()) {
+//	            addTableRowCenter(table, entry.getValue(), invrowhemapFont, totalTableBorderColor);
+//	        }
+//
+//	        // Set NO_BORDER for the entire first column
+//	        for (PdfPRow row : table.getRows()) {
+//	            PdfPCell[] cells = row.getCells();
+//	            if (cells.length > 0) {
+//	                cells[0].setBorder(Rectangle.NO_BORDER);
+//	            }
+//	        }
+//
+//	        document.add(table);
+//	        addEquipmentLegends(document, EquipMap);
+//
+//	        // Call the updated addGradientLegend method
+//	        addGradientLegend(document, usedColors, COLOR_SCALE, lowestValue, highestValue);
+//
+//	    } catch (Exception e) {
+//	        // Handle exceptions here
+//	        e.printStackTrace();
+//	    }
+//	}
+//	
+//
+//	private void addTableRowCenter(PdfPTable table, String cellValue, Font font, BaseColor borderColor,
+//	        float normalizedValue) {
 //	    PdfPCell cell = new PdfPCell(new Phrase(cellValue, font));
 //	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
 //	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
@@ -1374,6 +1287,11 @@ public class PdfGenerator {
 //
 //	            // Make the text color transparent
 //	            cell.setPhrase(new Phrase(cellValue, new Font(font.getBaseFont(), font.getSize(), 0, color)));
+//
+//	            // Set NO_BORDER for the left border of cells in the first column
+//	            if (table.getRows().isEmpty()) {
+//	                cell.setBorder(Rectangle.NO_BORDER);
+//	            }
 //	        } catch (NumberFormatException e) {
 //	            // Log the error for debugging
 //	            System.err.println("Error parsing float from cellValue: " + cellValue);
@@ -1383,38 +1301,122 @@ public class PdfGenerator {
 //
 //	    table.addCell(cell);
 //	}
-
-	private void addEquipmentLegends(Document document, Map<Integer, String> EquipMap) {
-		try {
-			PdfPTable legendTable = new PdfPTable(EquipMap.size());
-			legendTable.setWidthPercentage(100);
-			legendTable.setSpacingBefore(20);
-			legendTable.setHorizontalAlignment(Element.ALIGN_LEFT);
-
-			int number = 1; // Start with the number 1 for legends
-
-			// Specify the font size you want to use
-			float legendFontSize = 5;
-
-			// Create a Font instance with the specified size
-			Font legendFont = new Font(Font.FontFamily.TIMES_ROMAN, legendFontSize, Font.NORMAL);
-
-			// Add legends with numbers and Equipment IDs
-			for (Map.Entry<Integer, String> entry : EquipMap.entrySet()) {
-				PdfPCell legendCell = new PdfPCell(new Phrase(number + " - " + entry.getValue(), legendFont));
-				legendCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-				legendCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-				legendCell.setBorder(Rectangle.NO_BORDER);
-
-				legendTable.addCell(legendCell);
-
-				number++; // Increment the number for the next legend
-			}
-
-			document.add(legendTable);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+//
+//
+//	private void addGradientLegend(Document document, List<BaseColor> usedColors, BaseColor[] COLOR_SCALE,
+//			float lowestValue, float highestValue) {
+//		try {
+//			PdfPTable legendTable = new PdfPTable(3);
+//			legendTable.setWidthPercentage(40); // Set to 50% of page width
+//			legendTable.setSpacingBefore(10);
+//			legendTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
+//
+//			// Add the lowest value to the legendTable
+//			PdfPCell lowestValueCell = new PdfPCell(
+//					new Phrase("" + lowestValue, new Font(Font.FontFamily.TIMES_ROMAN, 8, 0)));
+//			lowestValueCell.setBorderColor(BaseColor.WHITE);
+//			lowestValueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+//			legendTable.addCell(lowestValueCell);
+//
+//			// Add the color rectangles to the legendTable
+//			PdfPTable colorRectanglesTable = new PdfPTable(COLOR_SCALE.length);
+//			colorRectanglesTable.setWidthPercentage(100); // Set to 100% of legendTable width
+//			for (BaseColor color : COLOR_SCALE) {
+//				PdfPCell colorCell = new PdfPCell();
+//				colorCell.setBackgroundColor(color);
+//				colorCell.setBorderColor(BaseColor.WHITE); // Optional: Set border color to white for separation
+//				colorCell.setFixedHeight(10); // Set the height of the rectangle
+//				colorCell.setColspan(1); // Span across 1 column
+//
+//				colorRectanglesTable.addCell(colorCell);
+//			}
+//
+//			PdfPCell colorRectanglesCell = new PdfPCell(colorRectanglesTable);
+//			colorRectanglesCell.setBorderColor(BaseColor.WHITE); // Optional: Set border color to white for separation
+//			colorRectanglesCell.setColspan(1); // Span across 1 column
+//
+//			legendTable.addCell(colorRectanglesCell);
+//
+//			// Add the highest value to the legendTable
+//			PdfPCell highestValueCell = new PdfPCell(
+//					new Phrase("" + highestValue, new Font(Font.FontFamily.TIMES_ROMAN, 8, 0)));
+//			highestValueCell.setBorderColor(BaseColor.WHITE);
+//			legendTable.addCell(highestValueCell);
+//
+//			document.add(legendTable);
+//		} catch (Exception e) {
+//			// Handle exceptions here
+//			e.printStackTrace();
+//		}
+//	}
+//
+//	private void addTableHeader1(PdfPTable table, String header, Font font) {
+//	    PdfPCell cell = new PdfPCell(new Phrase(header, font));
+//	    cell.setBorder(Rectangle.NO_BORDER); // Remove border for the cell
+//	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+//	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+//	    cell.setPadding(7);
+//	    table.addCell(cell);
+//	}
+////
+////	private void addTableRowCenter(PdfPTable table, String cellValue, Font font, float normalizedValue) {
+////	    PdfPCell cell = new PdfPCell(new Phrase(cellValue, font));
+////	    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+////	    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+////
+////	    // Set cell border width to 0 to remove the border
+////	    cell.setBorderWidth(0);
+////
+////	    // Set background color based on cell value
+////	    if (!cellValue.isEmpty()) {
+////	        try {
+////	            float value = Float.parseFloat(cellValue);
+////	            BaseColor color = getColorBasedOnValue(value);
+////	            cell.setBackgroundColor(color);
+////
+////	            // Make the text color transparent
+////	            cell.setPhrase(new Phrase(cellValue, new Font(font.getBaseFont(), font.getSize(), 0, color)));
+////	        } catch (NumberFormatException e) {
+////	            // Log the error for debugging
+////	            System.err.println("Error parsing float from cellValue: " + cellValue);
+////	            e.printStackTrace();
+////	        }
+////	    }
+////
+////	    table.addCell(cell);
+////	}
+//
+//	private void addEquipmentLegends(Document document, Map<Integer, String> EquipMap) {
+//		try {
+//			PdfPTable legendTable = new PdfPTable(EquipMap.size());
+//			legendTable.setWidthPercentage(100);
+//			legendTable.setSpacingBefore(20);
+//			legendTable.setHorizontalAlignment(Element.ALIGN_LEFT);
+//
+//			int number = 1; // Start with the number 1 for legends
+//
+//			// Specify the font size you want to use
+//			float legendFontSize = 5;
+//
+//			// Create a Font instance with the specified size
+//			Font legendFont = new Font(Font.FontFamily.TIMES_ROMAN, legendFontSize, Font.NORMAL);
+//
+//			// Add legends with numbers and Equipment IDs
+//			for (Map.Entry<Integer, String> entry : EquipMap.entrySet()) {
+//				PdfPCell legendCell = new PdfPCell(new Phrase(number + " - " + entry.getValue(), legendFont));
+//				legendCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+//				legendCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+//				legendCell.setBorder(Rectangle.NO_BORDER);
+//
+//				legendTable.addCell(legendCell);
+//
+//				number++; // Increment the number for the next legend
+//			}
+//
+//			document.add(legendTable);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 }
