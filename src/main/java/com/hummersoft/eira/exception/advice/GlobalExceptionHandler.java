@@ -1,10 +1,17 @@
 package com.hummersoft.eira.exception.advice;
 
-import com.hummersoft.eira.exception.EiraException;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+
+import java.nio.file.AccessDeniedException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,12 +20,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+import com.hummersoft.eira.exception.EiraException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -61,6 +63,12 @@ public class GlobalExceptionHandler {
         });
         Message msg = new Message(BAD_REQUEST.value(), errors.toString());
         return ResponseEntity.status(BAD_REQUEST.value()).body(msg);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity handleAccessDeniedException(AccessDeniedException e) {
+        // Customize the response as needed
+        return ResponseEntity.status(401).body(e.getMessage());
     }
 
 }

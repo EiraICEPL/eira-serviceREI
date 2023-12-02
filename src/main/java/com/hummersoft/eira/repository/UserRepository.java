@@ -15,13 +15,18 @@ import com.hummersoft.eira.model.User;
  *
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, Long>{
+public interface UserRepository extends JpaRepository<User, Integer>{
 	
 	
 	Optional<User>  findByUserName(String UserName);
 	
 	  @Query("FROM User WHERE EmailID= :email and ActiveFlag=1") 
 	  Optional<User> findActiveuserByEmail(@Param("email") String email);
+	  
+
+	  @Query("FROM User WHERE EmailID= :email") 
+		User findByEmailID(@Param("email")String emailId);
+	
 	 
 
 }
